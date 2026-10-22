@@ -1,1 +1,7 @@
-/prompts
+data/
+runs/
+.venv/
+__pycache__/
+*.pyc
+.env
+target/

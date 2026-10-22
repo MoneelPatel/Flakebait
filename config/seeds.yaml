@@ -1,0 +1,5 @@
+# Every random choice in the study draws from a seed declared here.
+selection_shuffle: 20261022   # per-category candidate shuffle (category name is mixed in)
+mutant_choice: 382            # Phase 3: uniform choice among surviving mutants
+pilot_order: 1115             # Phase 3: order for picking the 10 pilot repair instances
+shim_base: 7919               # Phase 2: per-run shim RNG = hash(shim_base, run_id)
