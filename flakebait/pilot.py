@@ -77,9 +77,12 @@ def plan(model: str | None, est_cost: float) -> None:
     print(f"estimated cost at ${est_cost:.2f}/run: ${est_cost * len(inst):.2f}")
 
 
-def run_all(model: str | None, budget: float, workers: int) -> list[dict]:
-    rows, spent, lock = [], [0.0], threading.Lock()
+def run_all(model: str | None, budget: float, workers: int, only: list[str] | None = None) -> list[dict]:
     out = paths.REPORTS / "pilot_runs.csv"
+    # Resume: keep finished runs, skip their instances, count their cost against the budget.
+    rows = list(csv.DictReader(open(out))) if out.exists() else []
+    done = {r["instance"] for r in rows}
+    spent, lock = [sum(float(r["cost_usd"] or 0) for r in rows)], threading.Lock()
 
     def job(instance: str):
         with lock:
@@ -96,8 +99,9 @@ def run_all(model: str | None, budget: float, workers: int) -> list[dict]:
                   f"{row.get('main_observed_exposure')} cost=${row['cost_usd']:.2f} (total ${spent[0]:.2f})",
                   flush=True)
 
+    todo = [i for i in (only or pilot_instances()) if i not in done]
     with ThreadPoolExecutor(workers) as pool:
-        list(pool.map(job, pilot_instances()))
+        list(pool.map(job, todo))
     summarize(rows)
     return rows
 
@@ -165,6 +169,7 @@ def main() -> None:
     ap.add_argument("--model")
     ap.add_argument("--workers", type=int, default=1)
     ap.add_argument("--est-cost", type=float, default=1.0)
+    ap.add_argument("--instances", nargs="*", help="run only these instances")
     args = ap.parse_args()
     if args.plan or not args.run:
         plan(args.model, args.est_cost)
@@ -172,7 +177,7 @@ def main() -> None:
     from .harness import load_api_key
     if not load_api_key():
         raise SystemExit("ANTHROPIC_API_KEY is not set (environment or .env)")
-    run_all(args.model, args.budget, args.workers)
+    run_all(args.model, args.budget, args.workers, args.instances)
 
 
 if __name__ == "__main__":

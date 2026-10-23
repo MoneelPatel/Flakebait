@@ -128,19 +128,28 @@ class Oracle:
         remap = None
         if config == FAILING and self.c.category == "TD":
             delayed = self.child / "src_delay"
-            self._sync(delayed)
             patch = self.state / "delay.patch"
-            r = subprocess.run(["patch", "-p1", "-s", "-f", "-d", str(delayed), "-i", str(patch)],
-                               capture_output=True, text=True)
-            if r.returncode != 0:
+            # The agent may have edited the lines around the delay; retry with fuzz (logged) before giving up.
+            fuzz = None
+            for f in ("0", "2", "3"):
+                self._sync(delayed)
+                r = subprocess.run(["patch", "-p1", "-s", "-f", "-F", f, "--no-backup-if-mismatch", "-d",
+                                    str(delayed), "-i", str(patch)], capture_output=True, text=True)
+                if r.returncode == 0:
+                    fuzz = int(f)
+                    break
+            if fuzz is None:
                 return ("RUN", [], {"error": "delay patch does not apply to the current tree",
                                     "patch_output": r.stdout[-500:]})
             remap = self._line_maps(src, delayed, patch)
             run_tree = "src_delay"
+            delay_fuzz = fuzz
 
         self.repro.installed = None   # the agent may have changed upstream modules
         rr = self.repro.run(run_tree, config, timeout=1800)
         info = {"status": rr.status, "seconds": round(rr.result.seconds, 1)}
+        if run_tree == "src_delay":
+            info["delay_patch_fuzz"] = delay_fuzz
         if rr.victim is None:
             info["output_tail"] = rr.result.output[-1500:]
             result = ("RUN", [], info)
