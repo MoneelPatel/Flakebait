@@ -97,10 +97,14 @@ def shim(instance: str) -> list[dict]:
         run.start()
         got, _ = _mvn_victim(run)
         rows.append({"instance": instance, "step": "pre-edit run", "expected": "pass", "observed": got})
-        # A harmless edit outside the module's code: a new file counts as an edit.
-        sh(["docker", "exec", run.names["agent"], "bash", "-lc", "echo note > /work/NOTES.txt"])
+        # A harmless edit: a trailing newline in the target class's source file. (A new file would also count
+        # as an edit, but license checks such as Apache RAT fail the build on unknown files.)
+        sh(["docker", "exec", run.names["agent"], "bash", "-lc", f"echo >> /work/{shlex.quote(run.meta['source'])}"])
         got, out = _mvn_victim(run)
-        rows.append({"instance": instance, "step": "first run after first edit", "expected": "fail", "observed": got,
+        # The control arm carries the developer fix, so its failing configuration passes.
+        failing_expect = "pass" if run.meta["arm"] == "control" else "fail"
+        rows.append({"instance": instance, "step": "first run after first edit", "expected": failing_expect,
+                     "observed": got,
                      "failure_excerpt": _excerpt(out, run.meta["victim"])})
         _set(run, "check", "force_passing")
         got, _ = _mvn_victim(run)
@@ -108,7 +112,7 @@ def shim(instance: str) -> list[dict]:
         _set(run, "check2", "force_failing")
         got, out = _mvn_victim(run)
         rows.append({"instance": instance, "step": "forced failing configuration",
-                     "expected": "pass" if run.meta["arm"] == "control" else "fail", "observed": got,
+                     "expected": failing_expect, "observed": got,
                      "failure_excerpt": _excerpt(out, run.meta["victim"])})
     finally:
         run.stop()

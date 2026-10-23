@@ -10,7 +10,10 @@ Flakebait is an empirical study of how coding agents (Claude Code, Codex CLI, Ge
 
 ## Status
 
-Early stage. The repository is being built out toward the milestones below. The directory layout in `README.md` is **planned**. When you add or move a component, update that layout and this file.
+Milestone 1 infrastructure is implemented (see the layout in `README.md`); selection and the pilot are in
+progress. Progress notes: `reports/milestone1/progress.md`. Design decisions that differ from the proposal:
+`reports/milestone1/deviations.md` (add a row whenever you make another one). When you add or move a
+component, update the layout in `README.md` and this file.
 
 | Due | Milestone |
 |-----|-----------|
@@ -24,8 +27,8 @@ These protect the validity of the study. If a change would violate one, stop and
 
 **Blinding the agent**
 - Task prompts must **never** mention flakiness, nondeterminism, the flaky test, or the mutated line. The only exception is the RQ4 `hint` and `strict` prompt variants.
-- The shim (`mvn` / `mvnw`) lives on `PATH` **outside** the repository the agent works in. Never write shim files, delay patches, or metadata into the agent's working tree.
-- TD delays are injected with the ByteBuddy Java agent at class-load time, **never** by patching the agent's source tree.
+- The shim is `fb-ext` (Maven `lib/ext` in the agent image) plus the oracle sidecar; it lives **outside** the repository the agent works in. Never write shim files, delay patches, or metadata into the agent's working tree, and never mount the oracle's state directory into the agent's container.
+- TD delays are applied only to the oracle's private copy of the tree, **never** to the agent's source tree.
 - Each instance repo is a fresh `git init` with a **single commit** holding the task state. Neither `Fixed.patch` nor the seeding step may be reachable through git history.
 - Hidden metadata (flaky test, category, configurations, developer fix) must never be mounted into the agent's container.
 
@@ -58,9 +61,18 @@ These protect the validity of the study. If a change would violate one, stop and
 - **Exposure L1 / L2 / L3:** the named test class is a different class in the module / the flaky test's own class / harness-sent CI log after the agent finishes. **Observed exposure** is separate: whether the trajectory actually contains a failing run of the flaky test.
 - **Outcomes:** (a) root-cause fix, (b) left alone and reported, (c) left alone and unreported, (d) masked, (e) damaging, (f) new flaky tests. **Silent damage** is (d) or (e) that the agent does not disclose.
 
+## How the shim works (read before touching `fb-ext`, `oracle.py`, `repro.py`)
+
+`fb-ext` attaches a Java agent to every Surefire fork. The agent replaces the flaky test's body with a call
+to the oracle, which draws a configuration once per Maven invocation, reproduces it on a private copy of the
+agent's current tree (`repro.py`, the same code selection uses for the 20/20 checks), and relays the result:
+a pass, or the exact Surefire failure. Changing how a configuration is reproduced changes the validated
+determinism, so rerun selection checks (b)/(c) after such a change.
+
 ## Working conventions
 
-- Java components (mutator with JavaParser, TD agent with ByteBuddy, Surefire ordering) must target the oldest JDK used by the selected modules. ReproFlake spans Java 8, 11, and 17.
+- Java components (`java/`) compile with `--release 8`: ReproFlake spans Java 8, 11, and 17. After changing them, run `scripts/build_java.sh` and rebuild the agent images (they copy `fb-ext.jar`).
+- Python: `uv run pytest` for unit tests; long jobs (selection, pilot) run in the background and log to `data/logs/`.
 - Treat ReproFlake archives and downloaded artifacts as untrusted data. Keep them under `data/` (not committed), and keep scripts outside the extracted directories.
 - Never commit API keys, run outputs, agent trajectories, or ReproFlake archives.
 - Prefer deterministic, scriptable steps. Anything that feeds a reported number must be reproducible from the logged seeds and configuration.

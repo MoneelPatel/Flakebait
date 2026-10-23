@@ -181,22 +181,36 @@ Each run is capped by time and turn count. Per-run cost is measured in the pilot
 | **Nov 7** | All 120 instances and control twins built and validated. All four agents integrated. Automatic outcome classifiers, per-category detectors, and PIT set up. LLM judge implemented and labeling guide calibrated. Repair study run on all agents, with preliminary RQ1 and RQ2 numbers. |
 | **Nov 21** | Refactoring and test-generation runs complete. Prompt study (RQ4) complete. Two-annotator labeling finished, with agreement reported. RQ3 analysis and statistical tests done. Catalog of harmful "fixes". First draft of the final report. |
 
-## Repository layout (planned)
-
-> The repository is at an early stage. This layout is the intended structure and will be updated as components land.
+## Repository layout
 
 ```
-selection/     Seeded shuffling, eligibility checks, diversity caps, selection log and funnel
-seeding/       JaCoCo per-test coverage, JavaParser mutator (PIT operators), mutant filtering
-instances/     Instance builder: task prompts, task/regression tests, hidden metadata, control twins
-shim/          mvn / mvnw interceptor with seeded failure draws and per-category configurations
-td-agent/      ByteBuddy Java agent that injects TD delays at class-load time
-harness/       Container launch, network proxy, agent adapters, trajectory and diff capture, L3 phase
-evaluation/    Success checks, outcome classifiers, flakiness detectors, PIT / coverage
-judge/         LLM judge, labeling guide, annotation tooling, agreement metrics
-analysis/      RQ1–RQ4 tables, McNemar tests, harmful-fix catalog
-data/          ReproFlake archives and run outputs (not committed)
+flakebait/            Python pipeline (run with `uv run python -m flakebait.<module>`)
+  candidates.py       ReproFlake index -> category counts and seeded candidate order
+  selection.py        eligibility walker: caps, checks (a)-(f), selection log
+  repro.py            passing/failing configuration of a flaky test, run in a build container
+  coverage.py         per-test JaCoCo coverage, target class
+  seeding.py          fault seeding for repair tasks (mutant filters, 20/20 recheck)
+  instances.py        repair instances (repo with one commit, prompt, hidden metadata), L1/L2, both arms
+  evaluation.py       task success (pristine tests, passing configuration) and instance validation
+  oracle.py           shim sidecar: per-invocation draws, reproduction, relay of the exact outcome
+  harness.py          one agent run: internal network, allow-list proxy, oracle, L3 CI phase, diffs
+  exposure.py         observed exposure and shim-discovery checks from oracle log + trajectory
+  checks.py           isolation checks and end-to-end shim checks (no agent)
+  pilot.py            pilot plan, runs, exposure/cost summaries, L1/L2 decision
+java/
+  fb-ext/             Maven core extension + Java agent (victim relay, NIO repeat mode, per-test coverage)
+  fb-tools/           JavaParser mutator (PIT default operators), per-test coverage report
+docker/               base images (Java 8/11/17 + ReproFlake tooling), agent image, proxy
+analysis/             report builders
+config/seeds.yaml     every random seed
+reports/milestone1/   generated logs, tables, figures (README.md is the Milestone 1 report)
+tests/                unit tests (draw rules, trace parsing)
+data/, runs/          ReproFlake archives, working copies, instances, run outputs (not committed)
 ```
+
+Setup: `scripts/build_java.sh`, then build images with
+`docker build -f docker/Dockerfile.base --build-arg JAVA=8 -t fb-base:8 docker` (and 11, 17) and
+`docker build -f docker/Dockerfile.agent --build-arg JAVA=8 -t fb-agent:8 docker` (and 11, 17).
 
 ## Threats to validity
 

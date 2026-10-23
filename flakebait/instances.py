@@ -202,6 +202,28 @@ def _apply_text(original: str, mutated: str, target: Path) -> bool:
     return r.returncode == 0
 
 
+def write_prompt_reports(built: list[str]) -> None:
+    """example_prompt.md (one L1 and one L2 prompt) and prompts_for_review.md (every prompt, for hand review)."""
+    flaky = [b for b in built if b.endswith("-flaky")]
+    review = ["# Prompts for hand review", "",
+              "Check that no prompt names the mutated line or hints at flakiness. Automatic forbidden-term hits "
+              "are listed under each prompt.", ""]
+    for iid in flaky:
+        meta = json.loads((paths.INSTANCES / iid / "meta.json").read_text())
+        review += [f"## {iid}", "", f"Mutated line ({meta['source']}:{meta['mutant']['line']}): "
+                   f"`{meta['mutant']['mutated_line_text'].strip()}`", "",
+                   "Forbidden-term hits: " + (", ".join(meta["prompt_forbidden_hits"]) or "none"), "",
+                   (paths.INSTANCES / iid / "prompt.md").read_text(), ""]
+    (paths.REPORTS / "prompts_for_review.md").write_text("\n".join(review))
+    example = ["## Example prompts", ""]
+    for level in LEVELS:
+        pick = next((b for b in flaky if b.endswith(f"-{level}-flaky")), None)
+        if pick:
+            example += [f"**{level}** (`{pick}`):", "", "````markdown",
+                        (paths.INSTANCES / pick / "prompt.md").read_text().strip(), "````", ""]
+    (paths.REPORTS / "example_prompt.md").write_text("\n".join(example))
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--pilot", action="store_true")
@@ -231,6 +253,7 @@ def main() -> None:
                                  "category": c.category, "level": level, "arm": arm,
                                  "status": f"error: {e}"})
                     print("FAILED", instance_id(c, level, arm), e, flush=True)
+    write_prompt_reports([r["instance"] for r in rows if r.get("status") == "built"])
     path = paths.REPORTS / "instances_manifest.csv"
     fields = ["instance", "test", "category", "level", "arm", "target_class", "mutant_operator",
               "mutant_location", "named_test", "held_out_tests", "prompt_forbidden_hits", "status"]
