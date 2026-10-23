@@ -34,7 +34,10 @@ class Box:
 
     def __enter__(self):
         mounts = [(self.source, paths.C_SRC, False), (self.m2, paths.C_M2, False), (paths.JARS, paths.C_JARS, True)]
+        # With networking off the container's own hostname does not resolve, which breaks any test calling
+        # InetAddress.getLocalHost(); map it to loopback (deviations.md #21).
         args = ["docker", "run", "-d", "--rm", "--name", self.name, "--network", self.network,
+                "--hostname", "fb-box", "--add-host", "fb-box:127.0.0.1",
                 "-w", paths.C_SRC, "--memory", os.environ.get("FB_MEM", "3g")]
         for host, target, ro in mounts + self.extra_mounts:
             args += ["--mount", f"type=bind,source={host},target={target}" + (",readonly" if ro else "")]

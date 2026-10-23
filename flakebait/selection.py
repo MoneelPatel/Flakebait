@@ -1,6 +1,7 @@
 """Flaky-test selection: walk each category's shuffled candidates and accept eligible tests until 10.
 
 Checks run in a fixed order and the first failing one is the rejection reason:
+  cap_class                 TD and NIO only, in place of the two caps below: <= 1 per test class (deviations #20)
   cap_module, cap_project   diversity caps (<= 1 per Maven module, <= 2 per upstream project, across
                             categories; config/project_aliases.yaml)
   addressable               the victim is one plain test method (not parameterized), so it can be named
@@ -38,7 +39,11 @@ from .seeding import REPEATS, seed_fault
 
 CATEGORY_ORDER = ["TD", "NIO", "OD", "ID"]
 TARGET = 10
-CHECKS = ["cap_module", "cap_project", "addressable", "a_offline_compile", "f_suite_under_10min",
+# TD and NIO cannot reach 10 under the module/project caps (NIO's 125 candidates come from 5 modules, 120 of them
+# junit-quickcheck core; TD's 36 from 17 modules in 10 repositories). For them the caps are replaced by at most one
+# flaky test per test class (deviations.md #20). ID and OD keep the proposal's caps, counted against all accepted.
+CLASS_CAP_ONLY = {"TD", "NIO"}
+CHECKS = ["cap_class", "cap_module", "cap_project", "addressable", "a_offline_compile", "f_suite_under_10min",
           "e_other_deterministic", "b_failing_20", "b_passing_20", "c_fixed_20", "d_seedable"]
 LOG = paths.REPORTS / "selection_log.csv"
 EVAL_DIR = paths.DATA / "evaluations"
@@ -248,6 +253,10 @@ class Walk:
         self.lock = threading.Lock()
 
     def caps(self, c: rf.Candidate) -> str | None:
+        if c.category in CLASS_CAP_ONLY:
+            if any(a.test_class == c.test_class for a in self.accepted):
+                return "cap_class"
+            return None
         if any(a.module_key == c.module_key for a in self.accepted):
             return "cap_module"
         if sum(1 for a in self.accepted if a.upstream == c.upstream) >= 2:

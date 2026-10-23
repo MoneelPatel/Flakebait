@@ -14,8 +14,6 @@ import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
-import yaml
-
 from . import paths
 
 # Build-noise switches ReproFlake passes to every Maven call.
@@ -66,6 +64,7 @@ class Candidate:
 
 @functools.lru_cache(maxsize=None)
 def _aliases() -> tuple[tuple[str, str], ...]:
+    import yaml   # not installed in the oracle's container, which never needs the aliases
     data = yaml.safe_load(open(paths.ROOT / "config" / "project_aliases.yaml"))
     return tuple(sorted(data["prefixes"].items(), key=lambda kv: -len(kv[0])))
 

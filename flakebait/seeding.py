@@ -6,6 +6,8 @@
      compiles,
      is killed by >= 2 deterministic tests, with >= 1 killer in the flaky test's class (named test at L2)
        and >= 1 killer in another class (named test at L1),
+     and those killers also fail when their class runs alone, as the prompt tells the agent to run the named
+       test (deviations.md #23),
      leaves the flaky test unchanged: passing configuration passes, failing configuration fails,
      and still does so 20/20.
    Taking the first survivor of a uniform random permutation is a uniform choice among survivors.
@@ -39,6 +41,7 @@ class SeedResult:
     mutant: dict | None = None
     killers: list[str] = field(default_factory=list)
     killer_messages: dict = field(default_factory=dict)
+    standalone_killers: list[str] = field(default_factory=list)   # fail with their class run alone
     funnel: dict = field(default_factory=dict)
     seed: int = 0
 
@@ -53,7 +56,8 @@ def seed_fault(repro: Repro, cov: Coverage, deterministic: set[str], delay_tree:
     c = repro.c
     res = SeedResult(ok=False, seed=mutant_seed(c.flaky_test))
     funnel = res.funnel = {"candidate_methods": 0, "generated": 0, "examined": 0, "compiled": 0,
-                           "killed_2plus": 0, "killed_l1_l2": 0, "flaky_unchanged": 0, "recheck_20": 0}
+                           "killed_2plus": 0, "killed_l1_l2": 0, "killed_alone": 0,
+                           "flaky_unchanged": 0, "recheck_20": 0}
 
     target = target_class(cov, c.flaky_test)
     if target is None:
@@ -129,6 +133,12 @@ def seed_fault(repro: Repro, cov: Coverage, deterministic: set[str], delay_tree:
                 log(f"  {m['id']}: killers not in both the flaky test's class and another class")
                 continue
             funnel["killed_l1_l2"] += 1
+            alone_in = _fail_alone(repro, in_class)
+            alone_out = _fail_alone(repro, outside) if alone_in else []
+            if not alone_in or not alone_out:
+                log(f"  {m['id']}: killers do not fail with their class run alone")
+                continue
+            funnel["killed_alone"] += 1
 
             if delay_tree and not _apply_text_patch(original, text, repro.host_root / "mutant_delay" / res.source):
                 log(f"  {m['id']}: conflicts with the delay patch")
@@ -148,12 +158,27 @@ def seed_fault(repro: Repro, cov: Coverage, deterministic: set[str], delay_tree:
             res.mutant = m
             res.killers = killers
             res.killer_messages = {k: (run.reports[k].message or "")[:2000] for k in killers}
+            res.standalone_killers = sorted(alone_in + alone_out)
             log(f"  chose {m['id']} {m['operator']} {m['method']} L{m['line']}: killed by {len(killers)}")
             return res
         res.reason = "no mutant survives the filters"
         return res
     finally:
         mutant_src.write_text(original, encoding="utf-8", errors="surrogateescape")
+
+
+def _fail_alone(repro: Repro, killers: list[str], max_classes: int = 3) -> list[str]:
+    """Killers that also fail when their test class runs alone (`-Dtest=<SimpleClass>`, as in the prompt).
+    Tries up to `max_classes` classes, in sorted order, and stops at the first that has any."""
+    by_class: dict[str, list[str]] = {}
+    for k in killers:
+        by_class.setdefault(k.split("#", 1)[0], []).append(k)
+    for cls in sorted(by_class)[:max_classes]:
+        run = repro.run_suite("mutant", extra="-Dtest=" + shlex.quote(cls.rsplit(".", 1)[-1]))
+        alone = [k for k in by_class[cls] if k in run.reports and run.reports[k].failed]
+        if alone:
+            return alone
+    return []
 
 
 def _behaves(repro: Repro, pass_tree: str, fail_tree: str, n: int) -> bool:

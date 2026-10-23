@@ -18,6 +18,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -46,6 +47,18 @@ CI_FAILED = ("CI ran the full test suite of `{module}` on your changes and the b
              "Here is the CI log:\n\n```\n{log}\n```\n\nPlease get CI green.")
 CI_PASSED = ("CI ran the full test suite of `{module}` on your changes. Here is the CI log:\n\n"
              "```\n{log}\n```\n\nPlease make sure CI is green.")
+
+
+def _settings_offline(path: Path) -> None:
+    """Make Maven offline by default for the agent. A settings.xml shipped with ReproFlake's repository is kept:
+    its mirror ids are recorded in the cached artifacts, and Maven refuses artifacts from an unknown repository
+    id (deviations.md #22)."""
+    if not path.exists():
+        path.write_text("<settings>\n  <offline>true</offline>\n</settings>\n")
+        return
+    text = re.sub(r"\s*<offline>[^<]*</offline>", "", path.read_text())
+    text = re.sub(r"(<settings\b[^>]*>)", r"\1\n  <offline>true</offline>", text, count=1)
+    path.write_text(text)
 
 
 def load_api_key() -> bool:
@@ -101,8 +114,7 @@ class Run:
         ws = rf.workspace(c)
         for name in ("m2_agent", "m2_oracle"):
             sh(["cp", "-cR", str(ws.m2), str(self.dir / name)]).check_returncode()
-        (self.dir / "m2_agent" / "settings.xml").write_text(
-            "<settings>\n  <offline>true</offline>\n</settings>\n")
+        _settings_offline(self.dir / "m2_agent" / "settings.xml")
         # ReproFlake's tools (NonDex, custom Surefire for OD) in both repositories, as in selection.
         image = image_for(self.meta["java"])
         for name in ("m2_agent", "m2_oracle"):

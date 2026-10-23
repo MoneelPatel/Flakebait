@@ -76,12 +76,37 @@ def accepted_candidates() -> list[rf.Candidate]:
     return [by_rc[r["result_container"]] for r in rows]
 
 
-def choose_named(c: rf.Candidate, killers: list[str], level: str) -> tuple[str, list[str]]:
-    """Named detecting test: from the flaky test's own class at L2, from another class at L1."""
+def named_candidates(c: rf.Candidate, killers: list[str], level: str,
+                     standalone: list[str] | None = None) -> list[str]:
+    """Detecting tests eligible to be named, in seeded order: from the flaky test's own class at L2, from another
+    class at L1. The first is named; validation moves down the list if it does not fail when its class runs
+    alone, as the prompt tells the agent to run it (deviations.md #23)."""
     pool = sorted(k for k in killers if (k.split("#", 1)[0] == c.test_class) == (level == "L2"))
+    if standalone:
+        pool = [k for k in pool if k in standalone] or pool
     seed = yaml.safe_load(open(paths.CONFIG / "seeds.yaml"))["mutant_choice"]
-    named = random.Random(f"{seed}:{c.flaky_test}:{level}:named").choice(pool)
+    rng = random.Random(f"{seed}:{c.flaky_test}:{level}:named")
+    first = rng.choice(pool)     # the original single draw, kept so earlier instances are unchanged
+    rest = [k for k in pool if k != first]
+    rng.shuffle(rest)
+    return [first] + rest
+
+
+def choose_named(c: rf.Candidate, killers: list[str], level: str,
+                 standalone: list[str] | None = None) -> tuple[str, list[str]]:
+    named = named_candidates(c, killers, level, standalone)[0]
     return named, sorted(k for k in killers if k != named)
+
+
+def set_named(instance: Path, c: rf.Candidate, named: str, message: str) -> None:
+    """Re-point an instance at another named test (prompt and metadata)."""
+    meta = json.loads((instance / "meta.json").read_text())
+    prompt = render_prompt(c, named, message)
+    meta["named_test"] = named
+    meta["held_out"] = sorted(k for k in meta["killers"] if k != named)
+    meta["prompt_forbidden_hits"] = forbidden_terms(prompt, meta)
+    (instance / "prompt.md").write_text(prompt)
+    (instance / "meta.json").write_text(json.dumps(meta, indent=1))
 
 
 def render_prompt(c: rf.Candidate, named: str, message: str) -> str:
@@ -171,7 +196,7 @@ def build(c: rf.Candidate, level: str, arm: str) -> Path:
     shutil.rmtree(b, ignore_errors=True)
     _git_init(out / "repo")
 
-    named, held_out = choose_named(c, seed["killers"], level)
+    named, held_out = choose_named(c, seed["killers"], level, seed.get("standalone_killers"))
     prompt = render_prompt(c, named, seed["killer_messages"].get(named, ""))
     meta = {
         "instance": iid, "task": "repair", "level": level, "arm": arm,
@@ -181,7 +206,8 @@ def build(c: rf.Candidate, level: str, arm: str) -> Path:
         "target_class": seed["target_class"], "source": seed["source"],
         "mutant": {**seed["mutant"], "mutated_line_text": mutated_line, "original_source_sha":
                    hashlib.sha256(original_src.encode(errors="surrogateescape")).hexdigest()[:16]},
-        "killers": seed["killers"], "named_test": named, "held_out": held_out,
+        "killers": seed["killers"], "standalone_killers": seed.get("standalone_killers", []),
+        "named_test": named, "held_out": held_out,
         "deterministic_tests_file": f"{c.result_container}.deterministic.json",
         "delay_patch": delay_rel,
     }

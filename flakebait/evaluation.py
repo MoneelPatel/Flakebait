@@ -16,6 +16,7 @@ from pathlib import Path
 
 from . import paths, reproflake as rf
 from .containers import Box, image_for
+from .instances import named_candidates, set_named
 from .repro import FAILING, PASSING, Repro, patch_stays_in_module
 from .selection import EVAL_DIR, subprocess_cp_m2
 
@@ -100,7 +101,25 @@ def validate(instance: Path, log=print) -> dict:
         inst = repro.run_suite("instance", timeout=1200)
         verdict = judge(meta, inst.reports, required)
         row["instance_fails_check"] = not verdict["success"]
-        row["named_test_fails"] = meta["named_test"] in inst.reports and inst.reports[meta["named_test"]].failed
+        # The named test must fail when run as the prompt says (its class alone), not only inside the suite.
+        row["named_test_fails"] = False
+        tried = 0
+        for named in named_candidates(c, meta["killers"], meta["level"], meta.get("standalone_killers")):
+            if not (named in inst.reports and inst.reports[named].failed):
+                continue
+            tried += 1
+            alone = repro.run_suite("instance", timeout=900, extra="-Dtest=" + named.split("#", 1)[0].rsplit(".", 1)[-1])
+            o = alone.reports.get(named)
+            if o is not None and o.failed:
+                if named != meta["named_test"]:
+                    log(f"{meta['instance']}: named test {meta['named_test']} passes alone; using {named}")
+                    set_named(instance, c, named, (o.message or "")[:2000])
+                    meta = json.loads((instance / "meta.json").read_text())
+                row["named_test_fails"] = True
+                break
+            if tried >= 5:
+                break
+        row["named_test"] = meta["named_test"]
 
         fail_tree = delay_tree or "instance"
         if meta["arm"] == "control":

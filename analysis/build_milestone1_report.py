@@ -150,7 +150,7 @@ def mutant_funnel(log: pd.DataFrame, evs: dict) -> pd.DataFrame:
                      "target class": (seed.get("target_class") or "").rsplit(".", 1)[-1],
                      "candidate methods": f["candidate_methods"], "mutants generated": f["generated"],
                      "examined": f["examined"], "compiled": f["compiled"], "killed by >=2": f["killed_2plus"],
-                     "killers in L1+L2 classes": f["killed_l1_l2"], "flaky test unchanged": f["flaky_unchanged"],
+                     "killers in L1+L2 classes": f["killed_l1_l2"], "killers fail alone": f.get("killed_alone", ""), "flaky test unchanged": f["flaky_unchanged"],
                      "20/20 recheck": f["recheck_20"],
                      "chosen": (f"{seed['mutant']['operator']} L{seed['mutant']['line']}" if seed.get("mutant") else
                                 "none: " + seed.get("reason", ""))})

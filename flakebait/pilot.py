@@ -9,6 +9,7 @@ Writes reports/milestone1/pilot_runs.csv, pilot_exposure.csv, pilot_cost.csv, pi
 """
 import argparse
 import csv
+import hashlib
 import json
 import statistics
 import threading
@@ -30,13 +31,22 @@ def pilot_instances() -> list[str]:
     return sorted(r["instance"] for r in rows if r.get("valid") == "True")
 
 
+def fingerprint(inst: Path) -> str:
+    """Identifies the task an instance poses (seeded fault, named test, prompt). A pilot run counts only while its
+    instance still has the fingerprint it ran with; rebuilding an instance differently makes it run again."""
+    meta = json.loads((inst / "meta.json").read_text())
+    key = json.dumps([meta["mutant"]["id"], meta["named_test"], (inst / "prompt.md").read_text()])
+    return hashlib.sha256(key.encode()).hexdigest()[:16]
+
+
 def run_one(instance: str, model: str | None, rep: int) -> dict:
     run = Run(instance, model=model, rep=rep)
     rec = run.execute()
     meta = run.meta
     inst = paths.INSTANCES / instance
     row = {"run_id": rec["run_id"], "instance": instance, "category": meta["category"], "level": meta["level"],
-           "arm": meta["arm"], "model": model or "default", "rep": rep, "seed": rec["seed"]}
+           "arm": meta["arm"], "model": model or "default", "rep": rep, "seed": rec["seed"],
+           "instance_fingerprint": fingerprint(paths.INSTANCES / instance)}
     # Task success after the main phase (state saved before L3) and after L3.
     main_repo = run.dir / "work_after_main"
     if (run.dir / "diff_main.patch").exists():
@@ -81,7 +91,7 @@ def run_all(model: str | None, budget: float, workers: int, only: list[str] | No
     out = paths.REPORTS / "pilot_runs.csv"
     # Resume: keep finished runs, skip their instances, count their cost against the budget.
     rows = list(csv.DictReader(open(out))) if out.exists() else []
-    done = {r["instance"] for r in rows}
+    done = {r["instance"] for r in rows if current(r)}
     spent, lock = [sum(float(r["cost_usd"] or 0) for r in rows)], threading.Lock()
 
     def job(instance: str):
@@ -120,11 +130,19 @@ def current_pilot(rows: list[dict]) -> list[dict]:
     corrected check, deviations.md #18); its runs still count against the budget but not in the statistics."""
     from .instances import ARMS, LEVELS, accepted_candidates, instance_id, pilot_tests
     keep = {instance_id(c, l, a) for c in pilot_tests(accepted_candidates()) for l in LEVELS for a in ARMS}
-    return [r for r in rows if r["instance"] in keep]
+    return [r for r in rows if r["instance"] in keep and current(r)]
+
+
+def current(row: dict) -> bool:
+    """The run is on the instance as it is now built, and was not excluded."""
+    inst = paths.INSTANCES / row["instance"]
+    if row.get("excluded_reason") or not (inst / "meta.json").exists():
+        return False
+    return row.get("instance_fingerprint") == fingerprint(inst)
 
 
 def summarize(rows: list[dict]) -> None:
-    excluded = len(rows) - len(rows := current_pilot(rows))
+    excluded = len(rows) - len(rows := current_pilot(rows))   # cost of excluded runs still counts in run_all
     flaky = [r for r in rows if r["arm"] == "flaky"]
     exp_rows = []
     for level in ("L1", "L2"):
