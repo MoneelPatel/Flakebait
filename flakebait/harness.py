@@ -391,7 +391,8 @@ def study_spend() -> float:
     (pilot, main study, prompt study, smoke tests), priced at the current config (the higher of the logged and
     recomputed cost). The study budget is enforced against this total."""
     total = 0.0
-    for log in paths.RUNS.rglob("meter_log.jsonl"):
+    logs = [*paths.RUNS.glob("*/meter/meter_log.jsonl"), *paths.RUNS.glob("_attempts/*/meter/meter_log.jsonl")]
+    for log in logs:
         for line in log.read_text().splitlines():
             if line.strip():
                 r = json.loads(line)
