@@ -6,6 +6,7 @@ Zips land in data/reproflake/zips/; existing complete files are skipped.
 import csv
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -27,16 +28,22 @@ def main():
         wanted.append((r["category"], r["zip"], r["url"]))
 
     print(f"prefetching {len(wanted)} zips: {per_cat}", flush=True)
-    for i, (cat, name, url) in enumerate(wanted, 1):
+
+    def fetch(item):
+        i, (cat, name, url) = item
         out = DEST / f"{name}.zip"
         done = DEST / f"{name}.zip.ok"
         if done.exists():
-            continue
+            return
         rc = subprocess.run(["curl", "-sfL", "--retry", "3", "-C", "-", "-o", str(out), url]).returncode
         if rc == 0:
             done.touch()
         print(f"[{i}/{len(wanted)}] {cat} {name} rc={rc} size={out.stat().st_size if out.exists() else 0}",
               flush=True)
+
+    # Zenodo throttles per connection, so a few parallel downloads help.
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        list(pool.map(fetch, enumerate(wanted, 1)))
 
 
 if __name__ == "__main__":
