@@ -13,8 +13,9 @@ FB_MEM=3500m uv run python -m flakebait.selection --workers 2   # long; resumabl
 uv run python -m flakebait.instances --pilot            # 10 pilot tests x L1/L2 x flaky/control
 uv run python -m flakebait.evaluation --validate        # instance_validation.csv
 uv run python -m flakebait.checks --instances <one flaky instance per category> <a control instance>
-uv run python -m flakebait.pilot --plan                 # then, after approval:
-ANTHROPIC_API_KEY=... uv run python -m flakebait.pilot --run --budget 50
+uv run python scripts/smoke_codex.py                   # one metered Codex call (OPENAI_API_KEY in .env)
+uv run python -m flakebait.pilot --plan                 # then:
+uv run python -m flakebait.pilot --run                  # or unattended: python -m flakebait.pilot_auto
 uv run python analysis/build_milestone1_report.py       # regenerates reports/milestone1/README.md
 ```
 

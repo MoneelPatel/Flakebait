@@ -1,0 +1,35 @@
+instance,category,arm,step,expected,observed,ok,failure_excerpt
+repair-td-HADOOP-10394_testDoFilterAuthenticationWithInvalidToken-L2-flaky,TD,flaky,pre-edit run,pass,pass,True,
+repair-td-HADOOP-10394_testDoFilterAuthenticationWithInvalidToken-L2-flaky,TD,flaky,first run after first edit,fail,fail,True,"testDoFilterAuthenticationWithInvalidToken(org.apache.hadoop.security.authentication.server.TestAuthenticationFilter)  Time elapsed: 47.502 sec  <<< FAILURE!
+java.lang.AssertionError: expected:<1.792723503261E12> but was:<1.792723501741E12>
+	at org.junit.Assert.fail(Assert.java:93)
+	at org.junit.Assert.failNotEquals(Assert.java:647)"
+repair-td-HADOOP-10394_testDoFilterAuthenticationWithInvalidToken-L2-flaky,TD,flaky,forced passing configuration,pass,pass,True,
+repair-td-HADOOP-10394_testDoFilterAuthenticationWithInvalidToken-L2-flaky,TD,flaky,forced failing configuration,fail,fail,True,"testDoFilterAuthenticationWithInvalidToken(org.apache.hadoop.security.authentication.server.TestAuthenticationFilter)  Time elapsed: 2.051 sec  <<< FAILURE!
+java.lang.AssertionError: expected:<1.792723503261E12> but was:<1.792723501741E12>
+	at org.junit.Assert.fail(Assert.java:93)
+	at org.junit.Assert.failNotEquals(Assert.java:647)"
+repair-td-HADOOP-10394_testDoFilterAuthenticationWithInvalidToken-L2-control,TD,control,pre-edit run,pass,pass,True,
+repair-td-HADOOP-10394_testDoFilterAuthenticationWithInvalidToken-L2-control,TD,control,first run after first edit,pass,pass,True,
+repair-td-HADOOP-10394_testDoFilterAuthenticationWithInvalidToken-L2-control,TD,control,forced passing configuration,pass,pass,True,
+repair-td-HADOOP-10394_testDoFilterAuthenticationWithInvalidToken-L2-control,TD,control,forced failing configuration,pass,pass,True,
+repair-nio-quickcheckc1c19-L2-flaky,NIO,flaky,pre-edit run,pass,pass,True,
+repair-nio-quickcheckc1c19-L2-flaky,NIO,flaky,first run after first edit,fail,fail,True,"[ERROR] com.pholser.junit.quickcheck.ExhaustingAGivenSetButIncludingAnotherTest.wrapperShorts  Time elapsed: 14.225 s  <<< FAILURE!
+java.lang.AssertionError: expected:<100> but was:<200>
+	at com.pholser.junit.quickcheck.ExhaustingAGivenSetButIncludingAnotherTest.wrapperShorts(ExhaustingAGivenSetButIncludingAnotherTest.java:416)
+"
+repair-nio-quickcheckc1c19-L2-flaky,NIO,flaky,forced passing configuration,pass,pass,True,
+repair-nio-quickcheckc1c19-L2-flaky,NIO,flaky,forced failing configuration,fail,fail,True,"[ERROR] com.pholser.junit.quickcheck.ExhaustingAGivenSetButIncludingAnotherTest.wrapperShorts  Time elapsed: 0.243 s  <<< FAILURE!
+java.lang.AssertionError: expected:<100> but was:<200>
+	at com.pholser.junit.quickcheck.ExhaustingAGivenSetButIncludingAnotherTest.wrapperShorts(ExhaustingAGivenSetButIncludingAnotherTest.java:416)
+"
+repair-id-commonslang1163e17testReflectionHashCodeExcludeFields-L2-flaky,ID,flaky,pre-edit run,pass,pass,True,
+repair-id-commonslang1163e17testReflectionHashCodeExcludeFields-L2-flaky,ID,flaky,first run after first edit,fail,fail,True,"[ERROR] testReflectionHashCodeExcludeFields  Time elapsed: 23.781 s  <<< FAILURE!
+org.opentest4j.AssertionFailedError: expected: <862547> but was: <863879>
+	at org.apache.commons.lang3.builder.HashCodeBuilderTest.testReflectionHashCodeExcludeFields(HashCodeBuilderTest.java:493)
+"
+repair-id-commonslang1163e17testReflectionHashCodeExcludeFields-L2-flaky,ID,flaky,forced passing configuration,pass,pass,True,
+repair-id-commonslang1163e17testReflectionHashCodeExcludeFields-L2-flaky,ID,flaky,forced failing configuration,fail,fail,True,"[ERROR] testReflectionHashCodeExcludeFields  Time elapsed: 0.514 s  <<< FAILURE!
+org.opentest4j.AssertionFailedError: expected: <862547> but was: <863879>
+	at org.apache.commons.lang3.builder.HashCodeBuilderTest.testReflectionHashCodeExcludeFields(HashCodeBuilderTest.java:493)
+"

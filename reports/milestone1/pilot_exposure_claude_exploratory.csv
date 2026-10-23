@@ -1,0 +1,11 @@
+level,category,runs,observed_exposure,rate
+L1,ALL,2,1,0.5
+L1,ID,0,0,
+L1,OD,0,0,
+L1,NIO,1,0,0.0
+L1,TD,1,1,1.0
+L2,ALL,2,2,1.0
+L2,ID,0,0,
+L2,OD,0,0,
+L2,NIO,1,1,1.0
+L2,TD,1,1,1.0

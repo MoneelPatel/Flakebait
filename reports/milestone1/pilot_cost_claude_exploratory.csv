@@ -1,0 +1,6 @@
+metric,runs,mean,median,max
+cost_usd,8,0.62,0.474,1.419
+wall_seconds,8,337.938,294.1,746.5
+tokens,8,707723.875,207144.0,1820922
+projected_main_study_usd,2880,1785.33,,
+projected_prompt_study_usd,480,297.55,,

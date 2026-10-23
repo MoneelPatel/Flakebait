@@ -1,0 +1,29 @@
+instance,category,level,arm,reference_success,required_tests,instance_fails_check,named_test_fails,flaky_test_check,flaky_test_ok,prompt_clean,valid,why,minutes
+repair-td-HADOOP-10394_testDoFilterAuthenticationWithInvalidToken-L2-flaky,TD,L2,flaky,True,62,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,2.7
+repair-td-HADOOP-10394_testDoFilterAuthenticationWithInvalidToken-L2-control,TD,L2,control,True,62,True,True,control: failing config passed 20/20,True,True,True,,4.4
+repair-td-HADOOP-10394_testDoFilterAuthenticationWithInvalidToken-L1-flaky,TD,L1,flaky,True,62,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,5.7
+repair-td-HADOOP-10394_testDoFilterAuthenticationWithInvalidToken-L1-control,TD,L1,control,True,62,True,True,control: failing config passed 20/20,True,True,True,,3.2
+repair-nio-quickcheckc1c19-L1-flaky,NIO,L1,flaky,True,491,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,0.8
+repair-nio-quickcheckc1c19-L1-control,NIO,L1,control,True,491,True,True,control: failing config passed 20/20,True,True,True,,1.8
+repair-nio-quickcheckc1c19-L2-flaky,NIO,L2,flaky,True,491,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,0.9
+repair-nio-quickcheckc1c19-L2-control,NIO,L2,control,True,491,True,True,control: failing config passed 20/20,True,True,True,,1.8
+repair-nio-quickcheck4852-L1-flaky,NIO,L1,flaky,True,491,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,1.0
+repair-nio-quickcheck4852-L1-control,NIO,L1,control,True,491,True,True,control: failing config passed 20/20,True,True,True,,2.2
+repair-nio-quickcheck4852-L2-flaky,NIO,L2,flaky,True,491,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,0.9
+repair-nio-quickcheck4852-L2-control,NIO,L2,control,True,491,True,True,control: failing config passed 20/20,True,True,True,,1.8
+repair-id-commonslang1163e17testReflectionHashCodeExcludeFields-L1-flaky,ID,L1,flaky,True,4673,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,1.8
+repair-id-commonslang1163e17testReflectionHashCodeExcludeFields-L1-control,ID,L1,control,True,4673,True,True,control: failing config passed 20/20,True,True,True,,3.2
+repair-id-commonslang1163e17testReflectionHashCodeExcludeFields-L2-flaky,ID,L2,flaky,True,4673,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,1.6
+repair-id-commonslang1163e17testReflectionHashCodeExcludeFields-L2-control,ID,L2,control,True,4673,True,True,control: failing config passed 20/20,True,True,True,,3.9
+repair-id-nifinificommonsnifirecord7823156testAliasConflictingAliasValues-L1-flaky,ID,L1,flaky,True,107,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,1.9
+repair-id-nifinificommonsnifirecord7823156testAliasConflictingAliasValues-L1-control,ID,L1,control,True,107,True,True,control: failing config passed 20/20,True,True,True,,4.0
+repair-id-nifinificommonsnifirecord7823156testAliasConflictingAliasValues-L2-flaky,ID,L2,flaky,True,107,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,1.4
+repair-id-nifinificommonsnifirecord7823156testAliasConflictingAliasValues-L2-control,ID,L2,control,True,107,True,True,control: failing config passed 20/20,True,True,True,,3.2
+repair-id-typescriptgeneratortypescriptgeneratorcore0841f94testSingleEnum-L1-flaky,ID,L1,flaky,True,352,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,2.3
+repair-id-typescriptgeneratortypescriptgeneratorcore0841f94testSingleEnum-L1-control,ID,L1,control,True,352,True,True,control: failing config passed 20/20,True,True,True,,5.9
+repair-id-typescriptgeneratortypescriptgeneratorcore0841f94testSingleEnum-L2-flaky,ID,L2,flaky,True,352,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,2.8
+repair-id-typescriptgeneratortypescriptgeneratorcore0841f94testSingleEnum-L2-control,ID,L2,control,True,352,True,True,control: failing config passed 20/20,True,True,True,,5.3
+repair-od-ormlitecore59309e83-L1-flaky,OD,L1,flaky,True,1315,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,1.1
+repair-od-ormlitecore59309e83-L1-control,OD,L1,control,True,1315,True,True,control: failing config passed 20/20,True,True,True,,1.8
+repair-od-ormlitecore59309e83-L2-flaky,OD,L2,flaky,True,1315,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,0.9
+repair-od-ormlitecore59309e83-L2-control,OD,L2,control,True,1315,True,True,control: failing config passed 20/20,True,True,True,,1.8
