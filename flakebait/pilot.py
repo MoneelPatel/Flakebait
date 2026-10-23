@@ -169,6 +169,9 @@ def main() -> None:
     if args.plan or not args.run:
         plan(args.model, args.est_cost)
         return
+    from .harness import load_api_key
+    if not load_api_key():
+        raise SystemExit("ANTHROPIC_API_KEY is not set (environment or .env)")
     run_all(args.model, args.budget, args.workers)
 
 

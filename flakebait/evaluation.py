@@ -145,7 +145,11 @@ def main() -> None:
     fields = ["instance", "category", "level", "arm", "reference_success", "required_tests",
               "instance_fails_check", "named_test_fails", "flaky_test_check", "flaky_test_ok", "prompt_clean",
               "valid", "why", "minutes"]
-    with open(paths.REPORTS / "instance_validation.csv", "w", newline="") as f:
+    out = paths.REPORTS / "instance_validation.csv"
+    if out.exists():  # keep rows of instances validated in earlier invocations
+        done = {r["instance"] for r in rows}
+        rows = [r for r in csv.DictReader(open(out)) if r["instance"] not in done] + rows
+    with open(out, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
         w.writeheader()
         w.writerows(rows)

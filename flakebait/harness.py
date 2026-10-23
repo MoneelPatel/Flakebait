@@ -47,6 +47,20 @@ CI_PASSED = ("CI ran the full test suite of `{module}` on your changes. Here is 
              "```\n{log}\n```\n\nPlease make sure CI is green.")
 
 
+def load_api_key() -> bool:
+    """ANTHROPIC_API_KEY from the environment, or else from the repo's .env (gitignored). Never logged."""
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return True
+    env = paths.ROOT / ".env"
+    if env.exists():
+        for line in env.read_text().splitlines():
+            key, _, value = line.strip().removeprefix("export ").partition("=")
+            if key == "ANTHROPIC_API_KEY" and value:
+                os.environ["ANTHROPIC_API_KEY"] = value.strip().strip("'\"")
+                return True
+    return False
+
+
 def sh(args: list[str], **kw) -> subprocess.CompletedProcess:
     return subprocess.run(args, capture_output=True, text=True, errors="replace", **kw)
 
@@ -280,8 +294,8 @@ def main() -> None:
     ap.add_argument("--prompt", default="neutral", choices=sorted(PROMPT_VARIANTS))
     ap.add_argument("--no-l3", action="store_true")
     args = ap.parse_args()
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        raise SystemExit("ANTHROPIC_API_KEY is not set")
+    if not load_api_key():
+        raise SystemExit("ANTHROPIC_API_KEY is not set (environment or .env)")
     rec = Run(args.instance, model=args.model, rep=args.rep, prompt_variant=args.prompt, l3=not args.no_l3).execute()
     print(json.dumps({k: rec[k] for k in ("run_id", "phases")}, indent=1, default=str)[:3000])
 
