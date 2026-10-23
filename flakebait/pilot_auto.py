@@ -78,7 +78,7 @@ def step(budget: float, checked: set[str]) -> int:
     if built_rows:
         merge_csv(paths.REPORTS / "instances_manifest.csv", built_rows)
         write_prompt_reports(sorted(r["instance"] for r in csv.DictReader(open(paths.REPORTS / "instances_manifest.csv"))
-                                    if r["status"] == "built"))
+                                    if r["status"] == "built" and (paths.INSTANCES / r["instance"] / "meta.json").exists()))
     if val_rows:
         merge_csv(paths.REPORTS / "instance_validation.csv", val_rows)
 
