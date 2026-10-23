@@ -70,7 +70,12 @@ def evaluate(c: rf.Candidate, log) -> Evaluation:
         if prev.reason != "error":
             return prev
 
+    box_ref: list[Box] = []
+
     def fail(check: str, why: str) -> Evaluation:
+        # A container killed under us (e.g. Docker restarted) must not count as a failed check.
+        if box_ref and not box_ref[0].alive():
+            raise RuntimeError(f"build container died during check {check}")
         ev.checks[check] = "fail"
         ev.reason = check
         ev.details[f"{check}_why"] = why
@@ -100,6 +105,7 @@ def evaluate(c: rf.Candidate, log) -> Evaluation:
             delay = "flaky_delay"
 
         with Box(image_for(c.java), host, host / "m2") as box:
+            box_ref.append(box)
             repro = Repro(c, box, host)
             if delay and patch_stays_in_module(ws.delay_patch, c.module):
                 repro.share_install(delay, "flaky")

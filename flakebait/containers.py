@@ -47,6 +47,10 @@ class Box:
     def __exit__(self, *exc):
         subprocess.run(["docker", "rm", "-f", self.name], capture_output=True)
 
+    def alive(self) -> bool:
+        r = subprocess.run(["docker", "inspect", "-f", "{{.State.Running}}", self.name], capture_output=True, text=True)
+        return r.stdout.strip() == "true"
+
     def sh(self, command: str, timeout: float = 1800) -> Result:
         start = time.time()
         try:
