@@ -38,7 +38,7 @@ def main() -> None:
             "--mount", f"type=bind,source={d / 'meter'},target=/meter",
             "-e", "OPENAI_API_KEY", "-e", "TURN_CAP=5", "-e", "RUN_CAP_USD=0.05",
             "-e", f"PRICE_INPUT={pr['input']}", "-e", f"PRICE_CACHED={pr['cached_input']}",
-            "-e", f"PRICE_OUTPUT={pr['output']}", "fb-base:8", "python3", "-u", "/meter.py", str(METER_PORT)]
+            "-e", f"PRICE_CACHE_WRITE={pr['cache_write']}", "-e", f"PRICE_OUTPUT={pr['output']}", "fb-base:8", "python3", "-u", "/meter.py", str(METER_PORT)]
            ).check_returncode()
         sh(["docker", "network", "connect", "bridge", meter]).check_returncode()
         sh(["docker", "run", "-d", "--rm", "--name", agent, "--network", net, "-e", f"CODEX_API_KEY={PLACEHOLDER_KEY}",

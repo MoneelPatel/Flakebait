@@ -30,6 +30,7 @@ TURN_CAP = int(os.environ.get("TURN_CAP", "30"))
 RUN_CAP_USD = float(os.environ.get("RUN_CAP_USD", "1.0"))
 P_IN = float(os.environ["PRICE_INPUT"]) / 1e6
 P_CACHED = float(os.environ["PRICE_CACHED"]) / 1e6
+P_WRITE = float(os.environ.get("PRICE_CACHE_WRITE", os.environ["PRICE_INPUT"])) / 1e6
 P_OUT = float(os.environ["PRICE_OUTPUT"]) / 1e6
 LONG = int(os.environ.get("LONG_CONTEXT_TOKENS", "272000"))
 LONG_IN = float(os.environ.get("LONG_CONTEXT_FACTOR_INPUT", "2.0"))
@@ -41,10 +42,13 @@ lock = threading.Lock()
 
 def cost(u: dict) -> float:
     inp = int(u.get("input_tokens") or 0)
-    cached = int((u.get("input_tokens_details") or {}).get("cached_tokens") or 0)
+    det = u.get("input_tokens_details") or {}
+    cached = int(det.get("cached_tokens") or 0)
+    write = int(det.get("cache_write_tokens") or 0)
     out = int(u.get("output_tokens") or 0)    # includes reasoning tokens
     fi, fo = (LONG_IN, LONG_OUT) if inp > LONG else (1.0, 1.0)
-    return ((inp - cached) * P_IN + cached * P_CACHED) * fi + out * P_OUT * fo
+    plain = max(inp - cached - write, 0)
+    return (plain * P_IN + write * P_WRITE + cached * P_CACHED) * fi + out * P_OUT * fo
 
 
 def log(rec: dict) -> None:

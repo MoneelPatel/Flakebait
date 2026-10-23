@@ -154,6 +154,7 @@ class Run:
             "--mount", f"type=bind,source={self.dir / 'meter'},target=/meter",
             "-e", "OPENAI_API_KEY", "-e", f"TURN_CAP={CAPS['turns_per_run']}", "-e", f"RUN_CAP_USD={CAPS['usd_per_run']}",
             "-e", f"PRICE_INPUT={pr['input']}", "-e", f"PRICE_CACHED={pr['cached_input']}",
+            "-e", f"PRICE_CACHE_WRITE={pr['cache_write']}",
             "-e", f"PRICE_OUTPUT={pr['output']}", "-e", f"LONG_CONTEXT_TOKENS={pr['long_context_tokens']}",
             "-e", f"LONG_CONTEXT_FACTOR_INPUT={pr['long_context_factor_input']}",
             "-e", f"LONG_CONTEXT_FACTOR_OUTPUT={pr['long_context_factor_output']}",
@@ -356,24 +357,38 @@ def api_ready() -> tuple[bool, str]:
     except Exception as e:
         return False, f"{type(e).__name__}: {e}"
     u = body.get("usage") or {}
-    pr = STUDY["prices"]
-    cached = int((u.get("input_tokens_details") or {}).get("cached_tokens") or 0)
-    usd = ((int(u.get("input_tokens") or 0) - cached) * pr["input"] + cached * pr["cached_input"]
-           + int(u.get("output_tokens") or 0) * pr["output"]) / 1e6
+    usd = price(u)
     with open(log, "a") as f:
         f.write(json.dumps({"t": round(time.time(), 3), "preflight": True, "status": 200, "model": body.get("model"),
                             "usage": u, "usd": round(usd, 8)}) + "\n")
     return True, f"ok ({body.get('model')})"
 
 
+def price(u: dict) -> float:
+    """USD for one call's usage at config/study.yaml prices (same formula as docker/meter.py)."""
+    pr = STUDY["prices"]
+    inp = int(u.get("input_tokens") or 0)
+    det = u.get("input_tokens_details") or {}
+    cached = int(det.get("cached_tokens") or 0)
+    write = int(det.get("cache_write_tokens") or 0)
+    out = int(u.get("output_tokens") or 0)
+    long = inp > pr["long_context_tokens"]
+    fi, fo = (pr["long_context_factor_input"], pr["long_context_factor_output"]) if long else (1.0, 1.0)
+    plain = max(inp - cached - write, 0)
+    return ((plain * pr["input"] + write * pr["cache_write"] + cached * pr["cached_input"]) * fi
+            + out * pr["output"] * fo) / 1e6
+
+
 def study_spend() -> float:
     """Dollars spent on the model API so far in the whole study: every call any run's meter has logged
-    (pilot, main study, prompt study, smoke tests). The study budget is enforced against this total."""
+    (pilot, main study, prompt study, smoke tests), priced at the current config (the higher of the logged and
+    recomputed cost). The study budget is enforced against this total."""
     total = 0.0
     for log in paths.RUNS.glob("*/meter/meter_log.jsonl"):
         for line in log.read_text().splitlines():
             if line.strip():
-                total += json.loads(line).get("usd") or 0
+                r = json.loads(line)
+                total += max(r.get("usd") or 0, price(r["usage"]) if r.get("usage") else 0)
     return round(total, 6)
 
 
