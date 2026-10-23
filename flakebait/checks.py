@@ -161,6 +161,10 @@ def main() -> None:
         all_rows += rows
         print(json.dumps(rows, indent=1), flush=True)
     path = paths.REPORTS / "shim_e2e.csv"
+    # Merge with earlier runs of this check (one instance per category is checked separately).
+    if path.exists():
+        done = {r["instance"] for r in all_rows}
+        all_rows = [r for r in csv.DictReader(open(path)) if r["instance"] not in done] + all_rows
     with open(path, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=["instance", "category", "arm", "step", "expected", "observed", "ok",
                                           "failure_excerpt"], extrasaction="ignore")
