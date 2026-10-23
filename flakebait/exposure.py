@@ -37,8 +37,8 @@ def tool_events(trajectory: Path) -> tuple[list[str], list[str]]:
             elif kind == "file_change":
                 inputs.append(json.dumps(item.get("changes", [])))
             continue
-        msg = ev.get("message") or {}
-        content = msg.get("content")
+        msg = ev.get("message")
+        content = msg.get("content") if isinstance(msg, dict) else None
         if not isinstance(content, list):
             continue
         for block in content:

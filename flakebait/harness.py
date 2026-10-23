@@ -116,7 +116,14 @@ class Run:
     # -------------------------------------------------------------------------------- setup
 
     def prepare(self) -> None:
-        shutil.rmtree(self.dir, ignore_errors=True)
+        if self.dir.exists():
+            # Keep earlier attempts (their meter logs count toward the study's spend); drop their bulky copies.
+            old = paths.RUNS / "_attempts" / f"{self.run_id}--{time.strftime('%Y%m%d-%H%M%S')}"
+            old.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(self.dir), str(old))
+            for bulky in ("m2_agent", "m2_oracle", "work_after_main", "check_main", "check_final"):
+                shutil.rmtree(old / bulky, ignore_errors=True)
+            shutil.rmtree(old / "oracle" / "child", ignore_errors=True)
         self.dir.mkdir(parents=True)
         sh(["cp", "-cR", str(self.instance_dir / "repo"), str(self.dir / "work")]).check_returncode()
         c = rf.Candidate(category=self.meta["category"], position=0, result_container=self.meta["result_container"],
@@ -207,7 +214,7 @@ class Run:
         """Codex CLI, headless. The container is the sandbox, so Codex's own sandbox and approvals are off;
         user config and rules are ignored so every setting is the one written here."""
         opts = ["--json", "--ignore-user-config", "--ignore-rules", "--skip-git-repo-check",
-                "--dangerously-bypass-approvals-and-sandbox", "--color", "never", "-m", self.model,
+                "--dangerously-bypass-approvals-and-sandbox", "-m", self.model,
                 "-c", f'model_reasoning_effort="{STUDY["reasoning_effort"]}"',
                 # The meter as a provider of its own: plain HTTP Responses API, no WebSocket transport (the meter
                 # relays HTTP only). The key Codex sends is a placeholder; the meter swaps in the real one.
@@ -384,7 +391,7 @@ def study_spend() -> float:
     (pilot, main study, prompt study, smoke tests), priced at the current config (the higher of the logged and
     recomputed cost). The study budget is enforced against this total."""
     total = 0.0
-    for log in paths.RUNS.glob("*/meter/meter_log.jsonl"):
+    for log in paths.RUNS.rglob("meter_log.jsonl"):
         for line in log.read_text().splitlines():
             if line.strip():
                 r = json.loads(line)
