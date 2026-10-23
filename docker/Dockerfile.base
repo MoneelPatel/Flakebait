@@ -6,12 +6,22 @@ ARG JAVA=8
 FROM maven:3.8.6-eclipse-temurin-8 AS tools
 RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
 ENV R=/opt/fb/tools-m2
-# Custom Surefire with -Dsurefire.runOrder=testorder (ReproFlake's OD configuration).
+# Custom Surefire with -Dsurefire.runOrder=testorder (ReproFlake's OD configuration), pinned.
+# Unpatched, it dies with a NullPointerException on any run without -Dtest (a whole suite, or an agent's plain
+# `mvn test`); od-surefire-null-test.patch adds the two null guards (deviations.md #17). ReproFlake's .m2 ships
+# the unguarded jars, so the guarded ones are also kept in /opt/fb/od-surefire and copied over them
+# (paths.TOOLS_MERGE).
+ARG SUREFIRE_COMMIT=e44303cff8dad3443b101283779abcd4d9a4dcee
+COPY od-surefire-null-test.patch /src/
 RUN git clone -q https://github.com/TestingResearchIllinois/maven-surefire.git /src/surefire \
- && cd /src/surefire && git rev-parse HEAD > /opt/surefire.commit \
+ && cd /src/surefire && git checkout -q $SUREFIRE_COMMIT && git rev-parse HEAD > /opt/surefire.commit \
+ && git apply /src/od-surefire-null-test.patch \
  && mvn -q -Dmaven.repo.local=$R install -DskipTests -Drat.skip -Denforcer.skip \
  && mkdir -p /opt/fb/od-ext \
- && cp surefire-changing-maven-extension/target/surefire-changing-maven-extension-1.0-SNAPSHOT.jar /opt/fb/od-ext/
+ && cp surefire-changing-maven-extension/target/surefire-changing-maven-extension-1.0-SNAPSHOT.jar /opt/fb/od-ext/ \
+ && cd $R && for a in org/apache/maven/plugins/maven-surefire-plugin org/apache/maven/surefire/maven-surefire-common; do \
+      mkdir -p /opt/fb/od-surefire/$a/3.0.0-M8-SNAPSHOT \
+      && cp $a/3.0.0-M8-SNAPSHOT/*-3.0.0-M8-SNAPSHOT.jar /opt/fb/od-surefire/$a/3.0.0-M8-SNAPSHOT/; done
 # Warm the repo with NonDex and plain Surefire/JUnit by running them on a tiny project.
 COPY warmup /src/warmup
 RUN cd /src/warmup \
@@ -19,6 +29,8 @@ RUN cd /src/warmup \
  && mvn -q -Dmaven.repo.local=$R edu.illinois:nondex-maven-plugin:2.1.1:nondex -DnondexRuns=1 \
  && mvn -q -Dmaven.repo.local=$R -Dmaven.ext.class.path=/opt/fb/od-ext/surefire-changing-maven-extension-1.0-SNAPSHOT.jar \
         test -Dsurefire.runOrder=testorder -Dtest=fb.WarmupTest#a,fb.WarmupTest#b
+# The guarded custom Surefire must also run a whole suite (no -Dtest).
+RUN cd /src/warmup && mvn -q -Dmaven.repo.local=$R -Dmaven.ext.class.path=/opt/fb/od-ext/surefire-changing-maven-extension-1.0-SNAPSHOT.jar test
 
 # Stage 2: the runtime image.
 FROM maven:3.8.6-eclipse-temurin-${JAVA}

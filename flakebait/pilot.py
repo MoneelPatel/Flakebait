@@ -18,7 +18,7 @@ from pathlib import Path
 from . import paths
 from .evaluation import success_check
 from .exposure import analyze
-from .harness import Run
+from .harness import PHASE_BUDGET_USD, Run
 
 MAIN_RUNS = 120 * 2 * 4 * 3
 PROMPT_RUNS = 40 * 2 * 2 * 3
@@ -86,8 +86,9 @@ def run_all(model: str | None, budget: float, workers: int, only: list[str] | No
 
     def job(instance: str):
         with lock:
-            avg = (spent[0] / len(rows)) if rows else 0.0
-            if spent[0] + avg > budget:
+            # A run cannot spend more than two phase caps, so reserving that keeps the total under the budget.
+            reserve = max(2 * PHASE_BUDGET_USD, 1.5 * max((float(r["cost_usd"] or 0) for r in rows), default=0))
+            if spent[0] + reserve > budget:
                 print(f"budget: skipping {instance} (spent ${spent[0]:.2f})", flush=True)
                 return
         row = run_one(instance, model, 1)
@@ -114,7 +115,16 @@ def _write(rows: list[dict], path: Path) -> None:
         w.writerows(rows)
 
 
+def current_pilot(rows: list[dict]) -> list[dict]:
+    """Runs on instances of the current pilot tests. A test can leave the selection after its pilot runs (a
+    corrected check, deviations.md #18); its runs still count against the budget but not in the statistics."""
+    from .instances import ARMS, LEVELS, accepted_candidates, instance_id, pilot_tests
+    keep = {instance_id(c, l, a) for c in pilot_tests(accepted_candidates()) for l in LEVELS for a in ARMS}
+    return [r for r in rows if r["instance"] in keep]
+
+
 def summarize(rows: list[dict]) -> None:
+    excluded = len(rows) - len(rows := current_pilot(rows))
     flaky = [r for r in rows if r["arm"] == "flaky"]
     exp_rows = []
     for level in ("L1", "L2"):
@@ -158,6 +168,9 @@ def summarize(rows: list[dict]) -> None:
                f"L2 exposure was {l2['observed_exposure']}/{l2['runs']}.")
     else:
         chosen, why = "undecided", "no L1 runs completed"
+    if excluded:
+        why += (f" ({excluded} earlier runs on tests no longer selected are excluded here; their cost counts "
+                f"against the budget.)")
     (paths.REPORTS / "pilot_decision.md").write_text(f"# Main-study exposure level\n\n**{chosen}**. {why}\n")
 
 

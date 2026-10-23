@@ -24,3 +24,8 @@ C_M2 = "/root/.m2"
 C_JARS = "/opt/fb/jars"
 C_OD_EXT = "/opt/fb/od-ext/surefire-changing-maven-extension-1.0-SNAPSHOT.jar"
 C_TOOLS_M2 = "/opt/fb/tools-m2"
+# Merge ReproFlake's tooling into a Maven repo (without overwriting), then force the null-guarded custom Surefire
+# jars over the copies ReproFlake ships (deviations.md #17). Shell; takes the repository directory as $R.
+TOOLS_MERGE = ('cp -rn /opt/fb/tools-m2/. "$R"/; '
+               '(cd /opt/fb/od-surefire && find . -name "*.jar") | while read j; do '
+               'if [ -d "$R/$(dirname "$j")" ]; then cp -f "/opt/fb/od-surefire/$j" "$R/$j"; fi; done')

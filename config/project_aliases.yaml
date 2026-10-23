@@ -1,0 +1,30 @@
+# Upstream repository for ReproFlake project names that are not already the repository name.
+# ReproFlake names some projects after a JIRA issue (HDFS-15702) or appends a commit hash (quickcheckc1c);
+# the diversity caps (<= 1 per module, <= 2 per project) apply to the upstream repository (deviations.md #18).
+# Prefix rules: a name starting with a key below maps to its value. Names not matched are used as is.
+prefixes:
+  ACCUMULO-: accumulo
+  APEXCORE-: apex-core
+  BOOKKEEPER-: bookkeeper
+  CAMEL-: camel
+  COLLECTIONS-: commons-collections
+  CURATOR-: curator
+  HADOOP-: hadoop
+  HDFS-: hadoop
+  YARN-: hadoop
+  hadoopbb6: hadoop
+  HBASE-: hbase
+  OOZIE-: oozie
+  RATIS-: ratis
+  SCB-: servicecomb-java-chassis
+  ZOOKEEPER-: zookeeper
+  dubbodubborpc: dubbo
+  elasticjob: shardingsphere-elasticjob
+  shardingsphereelasticjob: shardingsphere-elasticjob
+  jnrposix: jnr-posix
+  marineapi: marineapi
+  ormlitecore: ormlite-core
+  quickcheck: junit-quickcheck
+  wikidatatoolkit: wikidata-toolkit
+  wildflynaming: wildfly
+  incubator-shenyu: shenyu

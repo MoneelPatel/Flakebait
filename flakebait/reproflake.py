@@ -7,11 +7,14 @@ A workspace is one extracted zip under data/work/<zip>/ with:
   FlakyCodeChange.patch   TD only: the delay injection that makes the failure deterministic
 """
 import csv
+import functools
 import shutil
 import subprocess
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
+
+import yaml
 
 from . import paths
 
@@ -52,8 +55,26 @@ class Candidate:
         return self.flaky_test.split("#", 1)[1] if "#" in self.flaky_test else ""
 
     @property
+    def upstream(self) -> str:
+        """The upstream repository, which the diversity caps count (config/project_aliases.yaml)."""
+        return upstream_project(self.project)
+
+    @property
     def module_key(self) -> tuple[str, str]:
-        return (self.project, self.module)
+        return (self.upstream, self.module)
+
+
+@functools.lru_cache(maxsize=None)
+def _aliases() -> tuple[tuple[str, str], ...]:
+    data = yaml.safe_load(open(paths.ROOT / "config" / "project_aliases.yaml"))
+    return tuple(sorted(data["prefixes"].items(), key=lambda kv: -len(kv[0])))
+
+
+def upstream_project(project: str) -> str:
+    for prefix, repo in _aliases():
+        if project.startswith(prefix):
+            return repo
+    return project
 
 
 def load_candidates() -> list[Candidate]:

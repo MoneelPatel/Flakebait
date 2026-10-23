@@ -41,7 +41,7 @@ class Box:
         args += [self.image, "sleep", "infinity"]
         subprocess.run(args, check=True, capture_output=True)
         # ReproFlake's tooling (NonDex, custom Surefire) is merged into the module's repo without overwriting.
-        self.sh(f"cp -rn {paths.C_TOOLS_M2}/. {paths.C_M2}/repository/ 2>/dev/null; true", timeout=600)
+        self.sh(f"R={paths.C_M2}/repository; {{ {paths.TOOLS_MERGE}; }} 2>/dev/null; true", timeout=600)
         return self
 
     def __exit__(self, *exc):

@@ -1,0 +1,31 @@
+diff --git a/maven-surefire-common/src/main/java/org/apache/maven/plugin/surefire/booterclient/BooterSerializer.java b/maven-surefire-common/src/main/java/org/apache/maven/plugin/surefire/booterclient/BooterSerializer.java
+index 63bf8ccb4..4bb20f368 100644
+--- a/maven-surefire-common/src/main/java/org/apache/maven/plugin/surefire/booterclient/BooterSerializer.java
++++ b/maven-surefire-common/src/main/java/org/apache/maven/plugin/surefire/booterclient/BooterSerializer.java
+@@ -163,7 +163,10 @@ File serialize( KeyValueSource sourceProperties, ProviderConfiguration providerC
+             properties.setProperty( RUN_ORDER, RunOrder.asString( runOrderParameters.getRunOrder() ) );
+             properties.setProperty( RUN_STATISTICS_FILE, runOrderParameters.getRunStatisticsFile() );
+             properties.setProperty( RUN_ORDER_RANDOM_SEED, runOrderParameters.getRunOrderRandomSeed() );
+-            properties.setProperty( SPECIFIED_RUN_ORDER, runOrderParameters.getSpecifiedRunOrder() );
++            if ( runOrderParameters.getSpecifiedRunOrder() != null )
++            {
++                properties.setProperty( SPECIFIED_RUN_ORDER, runOrderParameters.getSpecifiedRunOrder() );
++            }
+         }
+ 
+         ReporterConfiguration reporterConfiguration = providerConfiguration.getReporterConfiguration();
+diff --git a/maven-surefire-plugin/src/main/java/org/apache/maven/plugin/surefire/SurefirePlugin.java b/maven-surefire-plugin/src/main/java/org/apache/maven/plugin/surefire/SurefirePlugin.java
+index c53421863..f3cd28c0b 100644
+--- a/maven-surefire-plugin/src/main/java/org/apache/maven/plugin/surefire/SurefirePlugin.java
++++ b/maven-surefire-plugin/src/main/java/org/apache/maven/plugin/surefire/SurefirePlugin.java
+@@ -689,6 +689,10 @@ public void setReportsDirectory( File reportsDirectory )
+     @Override
+     public String getTest()
+     {
++        if ( test == null )
++        {
++            return null;
++        }
+         File f = new File( test );
+         if ( f.exists() && !f.isDirectory ( ) )
+         {

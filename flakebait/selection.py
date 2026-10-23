@@ -1,7 +1,8 @@
 """Flaky-test selection: walk each category's shuffled candidates and accept eligible tests until 10.
 
 Checks run in a fixed order and the first failing one is the rejection reason:
-  cap_module, cap_project   diversity caps (<= 1 per Maven module, <= 2 per project, across categories)
+  cap_module, cap_project   diversity caps (<= 1 per Maven module, <= 2 per upstream project, across
+                            categories; config/project_aliases.yaml)
   addressable               the victim is one plain test method (not parameterized), so it can be named
                             to Maven and intercepted by the shim (technical criterion; deviations.md #4)
   a_offline_compile         module and upstream modules install offline from the cached repository
@@ -249,7 +250,7 @@ class Walk:
     def caps(self, c: rf.Candidate) -> str | None:
         if any(a.module_key == c.module_key for a in self.accepted):
             return "cap_module"
-        if sum(1 for a in self.accepted if a.project == c.project) >= 2:
+        if sum(1 for a in self.accepted if a.upstream == c.upstream) >= 2:
             return "cap_project"
         return None
 
@@ -275,7 +276,8 @@ class Walk:
                             futures[j] = pool.submit(evaluate, cj, lambda m, cj=cj: log(f"{cj.result_container}{m}"))
                 capped = self.caps(c)
                 row = {"category": cat, "shuffle_position": c.position, "result_container": c.result_container,
-                       "project": c.project, "module": c.module, "test": c.flaky_test, "java": c.java}
+                       "project": c.project, "upstream": c.upstream, "module": c.module, "test": c.flaky_test,
+                       "java": c.java}
                 if capped:
                     row.update({"rejection_reason": capped, capped: "fail", "started": now(), "finished": now()})
                     futures.pop(i, None)
@@ -302,7 +304,7 @@ class Walk:
             log(f"shortfall: {accepted_here}/{TARGET} eligible after examining all {len(cands)} candidates")
 
     def write(self) -> None:
-        fields = ["category", "shuffle_position", "result_container", "project", "module", "test", "java",
+        fields = ["category", "shuffle_position", "result_container", "project", "upstream", "module", "test", "java",
                   *CHECKS, "rejection_reason", "detail", "started", "finished"]
         with open(LOG, "w", newline="") as f:
             w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")

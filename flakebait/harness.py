@@ -32,6 +32,7 @@ from .containers import image_for
 
 AGENT_TIMEOUT_S = 45 * 60
 MAX_TURNS = 150
+PHASE_BUDGET_USD = 4.0      # hard per-phase spend cap (Claude Code --max-budget-usd); a run has <= 2 phases
 CI_LOG_CHARS = 15_000
 ORACLE_PORT = 8765
 
@@ -106,7 +107,7 @@ class Run:
         image = image_for(self.meta["java"])
         for name in ("m2_agent", "m2_oracle"):
             sh(["docker", "run", "--rm", "--network", "none", "-v", f"{self.dir / name}:/m2", image, "bash", "-c",
-                f"cp -rn {paths.C_TOOLS_M2}/. /m2/repository/"]).check_returncode()
+                f"R=/m2/repository; {paths.TOOLS_MERGE}"]).check_returncode()
 
         state = self.dir / "oracle"
         state.mkdir()
@@ -172,7 +173,7 @@ class Run:
 
     def agent_cmd(self, prompt: str, resume: str | None) -> list[str]:
         cmd = ["claude", "-p", prompt, "--output-format", "stream-json", "--verbose",
-               "--max-turns", str(MAX_TURNS), "--dangerously-skip-permissions",
+               "--max-turns", str(MAX_TURNS), "--max-budget-usd", str(PHASE_BUDGET_USD), "--dangerously-skip-permissions",
                "--disallowedTools", "WebSearch,WebFetch"]
         if self.model:
             cmd += ["--model", self.model]
