@@ -44,10 +44,24 @@ def patch_stays_in_module(patch: Path, module: str) -> bool:
     return all(f == "/dev/null" or f.startswith(prefix) for f in files) if prefix else True
 
 
+# How the module is built offline. ReproFlake's caches were filled on x86-64 machines and, for some projects, by
+# building only the flaky test's module against upstream snapshots already in the cache. When the default build
+# (module plus upstream modules) fails offline, selection tries these in order and records the first that works;
+# every later Maven call for that test uses it (deviations.md #24).
+BUILD_MODES = {
+    "default": {"am": True, "props": ""},
+    "x86_classifier": {"am": True, "props": "-Dos.detected.classifier=linux-x86_64"},
+    "module_only": {"am": False, "props": ""},
+    "module_only_x86_classifier": {"am": False, "props": "-Dos.detected.classifier=linux-x86_64"},
+}
+
+
 class Repro:
-    def __init__(self, cand: Candidate, box: Box, host_root: Path, src_root: str = paths.C_SRC):
+    def __init__(self, cand: Candidate, box: Box, host_root: Path, src_root: str = paths.C_SRC,
+                 build_mode: str | None = None):
         self.c = cand
         self.box = box
+        self.build_mode = build_mode        # None: not chosen yet; build() tries BUILD_MODES in order
         self.host_root = host_root    # host directory mounted at src_root (the same directory when run locally)
         self.src_root = src_root
         self.installed: str | None = None
@@ -58,9 +72,11 @@ class Repro:
     def mvn(self) -> str:
         """ReproFlake's OD image loads the custom-Surefire extension for every Maven call; some modules only
         build offline with it (it disables plugins such as the enforcer)."""
+        props = BUILD_MODES[self.build_mode or "default"]["props"]
+        base = f"{MVN} {props}".rstrip()
         if self.c.category == "OD":
-            return f"{MVN} -Dmaven.ext.class.path={paths.C_OD_EXT}"
-        return MVN
+            return f"{base} -Dmaven.ext.class.path={paths.C_OD_EXT}"
+        return base
 
     def _cd(self, tree: str) -> str:
         return f"cd {self.src_root}/{shlex.quote(tree)}"
@@ -70,8 +86,16 @@ class Repro:
 
     def build(self, tree: str, timeout: float = 1800) -> Result:
         """Offline install of the module and its upstream modules (tests compiled, not run)."""
-        r = self.box.sh(f"{self._cd(tree)} && {self.mvn} install -DskipTests -pl {shlex.quote(self.c.module)} -am "
-                        f"{self.skips()}", timeout=timeout)
+        modes = [self.build_mode] if self.build_mode else list(BUILD_MODES)
+        for mode in modes:
+            self.build_mode = mode
+            am = "-am" if BUILD_MODES[mode]["am"] else ""
+            r = self.box.sh(f"{self._cd(tree)} && {self.mvn} install -DskipTests -pl {shlex.quote(self.c.module)} "
+                            f"{am} {self.skips()}", timeout=timeout)
+            if r.rc == 0:
+                break
+        else:
+            self.build_mode = None if len(modes) > 1 else modes[0]
         self.installed = self.install_key.get(tree, tree) if r.rc == 0 else None
         return r
 

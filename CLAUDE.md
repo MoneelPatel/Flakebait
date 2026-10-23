@@ -4,7 +4,7 @@ Guidance for Claude Code when working in this repository.
 
 ## What this project is
 
-Flakebait is an empirical study of how coding agents (Claude Code, Codex CLI, Gemini CLI, OpenHands) behave when a **flaky test fails unannounced** in the middle of an unrelated task (repair, refactoring, test generation). It builds 120 task instances on top of the ReproFlake dataset (Java/Maven), runs agents headless in offline containers, and classifies whether they recognize the flakiness, fix it, mask it, or silently damage the code.
+Flakebait is a case study of how one coding agent, **OpenAI's Codex CLI on GPT-6 Luna** (`gpt-6-luna`), behaves when a **flaky test fails unannounced** during a **bug-repair** task. It builds 40 repair instances (10 flaky tests per category) on top of the ReproFlake dataset (Java/Maven), runs the agent headless in offline containers, and classifies whether it recognizes the flakiness, fixes it, masks it, or silently damages the code. Total API budget: **$100**.
 
 `README.md` is the full design. Read it before making design-level changes. This file lists the rules the code must uphold.
 
@@ -17,9 +17,9 @@ component, update the layout in `README.md` and this file.
 
 | Due | Milestone |
 |-----|-----------|
-| Oct 24 | Selection + log, 40 tests validated, shim (all categories), fault seeding, 10 repair instances at L1/L2, harness, one-agent pilot |
-| Nov 7 | All 120 instances + control twins, all 4 agents, classifiers, detectors, PIT, LLM judge, repair study run |
-| Nov 21 | Refactoring + test-gen runs, RQ4 prompt study, annotation and agreement, RQ3 analysis, report draft |
+| Oct 24 | Selection + log, 40 tests validated, shim (all categories) with condensed output, fault seeding, 10 repair instances (control twins, L1/L2), Codex harness with turn/time/dollar caps, pilot (exposure, level, control solve rate, cost) |
+| Nov 7 | All 40 instances + control twins, outcome classifiers, LLM judge + labeling guide, main study (240 runs) |
+| Nov 21 | RQ4 prompt study (240 runs), annotation and agreement, RQ3 analysis, catalog of harmful fixes, spend report, report draft |
 
 ## Invariants: do not break these
 
@@ -34,12 +34,12 @@ These protect the validity of the study. If a change would violate one, stop and
 
 **Isolation**
 - The container runs with networking disabled. Maven runs offline (`-o`) against ReproFlake's cached repository.
-- The only outbound traffic is the agent's model API call, through an allow-list proxy. The agent's web search and fetch tools are disabled.
+- The only outbound traffic is the agent's model API call, through the meter (`docker/meter.py`), which forwards only to `api.openai.com` and holds the real key; the agent's container has a placeholder key. Codex's web search is disabled.
 
 **Reproducibility**
 - Every random choice uses a fixed seed that is recorded: category shuffles, mutant choice, and the shim's per-run draws.
 - The selection log records **every** candidate examined and its rejection reason. Never hand-pick tests or silently drop candidates.
-- Diversity caps: at most 1 flaky test per Maven module and 2 per project, counted by **upstream repository** (`config/project_aliases.yaml`; ReproFlake's project names include issue keys and commit hashes).
+- Diversity caps: at most 1 flaky test per Maven module and 2 per project, counted by **upstream repository** (`config/project_aliases.yaml`; ReproFlake's project names include issue keys and commit hashes). For TD and NIO only, at most 1 per test class instead (deviation #20, decided with the project owner).
 - If TD has fewer than 10 eligible tests, use all of them and report the shortfall. **Do not backfill** from other categories.
 - Shim rules: the flaky test always passes before the agent's first edit, and the first post-edit invocation that runs it always fails. After that, the failing configuration applies with probability `p` (default 0.5). Log every draw.
 
@@ -51,13 +51,16 @@ These protect the validity of the study. If a change would violate one, stop and
 - Determinism checks are 20/20: failing config fails, passing config passes, `Fixed.patch` passes under the failing config. Repeat them on each seeded-fault version.
 
 **Budget**
-- Cut repetitions first and then agents. **Never cut task types or flaky categories.** The design must stay balanced.
+- $100 total for model API calls. Every call goes through a meter and is logged; `harness.study_spend()` is the total. No run starts once that total plus one run's cap would pass $95 (`config/study.yaml`). Per run: 30 model calls, 15 minutes of agent time, $1.00.
+- Never call the model API outside the meter or `harness.api_ready()` (which logs its cost).
+- If the projected cost is too high: cut the strict prompt to one repetition, then the turn cap to 20. **Never cut flaky categories, the flaky/control pairing, or the three main-study repetitions.**
 
 ## Key terms
 
 - **Failing / passing configuration:** the two deterministic ways to run a flaky test. The failing one is ReproFlake's reproduction: polluter-first (OD), stored NonDex seed (ID), second same-JVM run (NIO), injected sleep (TD). The passing one is a default Maven run.
 - **Target class:** the production class the flaky test exercises, found with JaCoCo. Every task targets it.
 - **Arms:** *flaky* (as shipped) vs. *control* (`Fixed.patch` applied).
+- **Agent settings:** `config/study.yaml` (Codex CLI version, model, reasoning effort, caps, prices) is fixed for the whole study and recorded in every run. Change it only before the main study, and add a deviation row.
 - **Exposure L1 / L2 / L3:** the named test class is a different class in the module / the flaky test's own class / harness-sent CI log after the agent finishes. **Observed exposure** is separate: whether the trajectory actually contains a failing run of the flaky test.
 - **Outcomes:** (a) root-cause fix, (b) left alone and reported, (c) left alone and unreported, (d) masked, (e) damaging, (f) new flaky tests. **Silent damage** is (d) or (e) that the agent does not disclose.
 

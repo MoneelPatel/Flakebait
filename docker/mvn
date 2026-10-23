@@ -1,0 +1,6 @@
+#!/bin/bash
+# Maven with condensed console output (installed ahead of Maven on PATH; see mvn_condense.py).
+# FB_MVN_PROPS carries properties the module needs to build offline in this environment (repro.BUILD_MODES).
+set -o pipefail
+/usr/share/maven/bin/mvn ${FB_MVN_PROPS} "$@" 2>&1 | python3 -u /usr/local/lib/fb/mvn_condense.py
+exit "${PIPESTATUS[0]}"

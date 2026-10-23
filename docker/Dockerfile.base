@@ -40,3 +40,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=tools /opt/fb /opt/fb
 COPY --from=tools /opt/surefire.commit /opt/fb/surefire.commit
 RUN git config --system --add safe.directory '*'
+# ReproFlake's Maven caches hold only x86-64 protoc binaries. On arm64 hosts, Docker runs them through Rosetta/qemu
+# once the x86-64 C runtime is present; builds then select them with -Dos.detected.classifier=linux-x86_64
+# (repro.py; deviations.md #24).
+RUN if [ "$(dpkg --print-architecture)" = arm64 ]; then \
+      dpkg --add-architecture amd64 \
+      && sed -i 's/^deb http/deb [arch=arm64] http/' /etc/apt/sources.list \
+      && for pk in jammy jammy-updates; do echo "deb [arch=amd64] http://archive.ubuntu.com/ubuntu $pk main"; done \
+           > /etc/apt/sources.list.d/amd64.list \
+      && echo "deb [arch=amd64] http://security.ubuntu.com/ubuntu jammy-security main" >> /etc/apt/sources.list.d/amd64.list \
+      && apt-get update && apt-get install -y --no-install-recommends libc6:amd64 libstdc++6:amd64 zlib1g:amd64 \
+      && rm -rf /var/lib/apt/lists/*; fi

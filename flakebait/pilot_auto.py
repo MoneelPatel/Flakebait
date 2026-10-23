@@ -7,7 +7,7 @@ Every --interval seconds:
   4. run the agent on valid instances without a pilot run yet, within the budget (pilot.run_all)
 Stops when all 40 pilot runs exist, or when selection has stopped and nothing is left to do.
 
-Usage: uv run python -m flakebait.pilot_auto --budget 50 [--interval 600]
+Usage: uv run python -m flakebait.pilot_auto [--interval 600]   (budget: caps.study_stop_usd in config/study.yaml)
 """
 import argparse
 import csv
@@ -18,7 +18,7 @@ import time
 from . import paths
 from .checks import shim
 from .evaluation import validate
-from .harness import load_api_key
+from .harness import CAPS, api_ready, load_api_key
 from .instances import ARMS, LEVELS, accepted_candidates, build, instance_id, pilot_tests, write_prompt_reports
 from .pilot import run_all, summarize
 
@@ -97,7 +97,11 @@ def step(budget: float, checked: set[str]) -> int:
                 log(f"shim e2e {iid}: {[r['ok'] for r in rows]}")
 
     ready = [instance_id(c, l, a) for c in tests for l in LEVELS for a in ARMS if validated(instance_id(c, l, a))]
-    run_all(None, budget, 1, ready)
+    ok, why = api_ready()
+    if ok:
+        run_all(None, budget, 1, ready)
+    else:
+        log(f"model API not ready ({why}); building and validating only")
     done = len(list(csv.DictReader(open(paths.REPORTS / "pilot_runs.csv")))) if (paths.REPORTS / "pilot_runs.csv").exists() else 0
     log(f"pilot tests {len(tests)}/10, valid instances {len(ready)}, pilot runs {done}")
     return done
@@ -116,22 +120,22 @@ def _merge_e2e(path, rows: list[dict]) -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--budget", type=float, default=50.0)
+    ap.add_argument("--budget", type=float, default=CAPS["study_stop_usd"])
     ap.add_argument("--interval", type=int, default=600)
     args = ap.parse_args()
     if not load_api_key():
-        raise SystemExit("ANTHROPIC_API_KEY is not set (environment or .env)")
+        raise SystemExit("OPENAI_API_KEY is not set (environment or .env)")
     checked: set[str] = set()
     while True:
         try:
-            done = step(args.budget, checked)
+            done = step(min(args.budget, CAPS["study_stop_usd"]), checked)
         except Exception as e:  # keep following selection; the error is in the log
             log(f"step failed: {type(e).__name__}: {e}")
             done = 0
         if done >= 40:
             break
         if not selection_running():
-            step(args.budget, checked)
+            step(min(args.budget, CAPS["study_stop_usd"]), checked)
             break
         time.sleep(args.interval)
     rows = list(csv.DictReader(open(paths.REPORTS / "pilot_runs.csv"))) if (paths.REPORTS / "pilot_runs.csv").exists() else []

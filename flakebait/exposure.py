@@ -18,7 +18,8 @@ DISCOVERY = [r"\bwhich\s+mvn", r"lib/ext", r"fb-ext", r"fb-oracle", r"javaagent"
 
 
 def tool_events(trajectory: Path) -> tuple[list[str], list[str]]:
-    """(tool inputs as text, tool results as text) from Claude Code stream-json."""
+    """(tool inputs as text, tool results as text) from Codex --json events (or Claude Code stream-json, used
+    by the exploratory runs)."""
     inputs, results = [], []
     if not trajectory.exists():
         return inputs, results
@@ -26,6 +27,15 @@ def tool_events(trajectory: Path) -> tuple[list[str], list[str]]:
         try:
             ev = json.loads(line)
         except json.JSONDecodeError:
+            continue
+        item = ev.get("item") if ev.get("type") == "item.completed" else None
+        if isinstance(item, dict):
+            kind = item.get("type") or item.get("item_type")
+            if kind == "command_execution":
+                inputs.append(str(item.get("command", "")))
+                results.append(str(item.get("aggregated_output", "")))
+            elif kind == "file_change":
+                inputs.append(json.dumps(item.get("changes", [])))
             continue
         msg = ev.get("message") or {}
         content = msg.get("content")

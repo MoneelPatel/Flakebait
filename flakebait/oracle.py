@@ -63,7 +63,8 @@ class Oracle:
         self.lock = threading.Lock()          # one reproduction at a time (one child workspace)
         self.log_lock = threading.Lock()
         self.baseline_hash = self.tree_hash()
-        self.repro = Repro(self.c, LocalBox(), self.child, src_root=str(self.child))
+        self.repro = Repro(self.c, LocalBox(), self.child, src_root=str(self.child),
+                           build_mode=self.cfg.get("build_mode", "default"))
 
     # ------------------------------------------------------------------ state of the agent's tree
 

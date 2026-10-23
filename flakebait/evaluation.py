@@ -55,7 +55,7 @@ def success_check(instance: Path, final_repo: Path, work: Path) -> dict:
     restore_tests(work / "final", instance / "pristine", c.module)
     subprocess_cp_m2(ws.m2, work / "m2")
     with Box(image_for(c.java), work, work / "m2") as box:
-        repro = Repro(c, box, work)
+        repro = Repro(c, box, work, build_mode=meta.get("build_mode"))
         b = repro.build("final")
         if b.rc != 0:
             return {"success": False, "compile": False, "error": b.output[-1500:]}
@@ -87,7 +87,7 @@ def validate(instance: Path, log=print) -> dict:
     row = {"instance": meta["instance"], "category": c.category, "level": meta["level"], "arm": meta["arm"]}
     start = time.time()
     with Box(image_for(c.java), work, work / "m2") as box:
-        repro = Repro(c, box, work)
+        repro = Repro(c, box, work, build_mode=meta.get("build_mode"))
         repro.share_install("reference", "instance")   # they differ only in the target class
         if delay_tree and patch_stays_in_module(instance / meta["delay_patch"], c.module):
             repro.share_install("instance_delay", "instance")

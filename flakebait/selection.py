@@ -119,6 +119,7 @@ def evaluate(c: rf.Candidate, log) -> Evaluation:
             # (a) offline compile
             b = repro.build("flaky")
             ev.details["build_seconds"] = round(b.seconds, 1)
+            ev.details["build_mode"] = repro.build_mode
             if b.rc != 0:
                 _keep_log(host, "build.log", b.output)
                 fail("a_offline_compile", _last_error(b.output))

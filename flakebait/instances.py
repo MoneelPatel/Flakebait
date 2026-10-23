@@ -209,7 +209,7 @@ def build(c: rf.Candidate, level: str, arm: str) -> Path:
         "killers": seed["killers"], "standalone_killers": seed.get("standalone_killers", []),
         "named_test": named, "held_out": held_out,
         "deterministic_tests_file": f"{c.result_container}.deterministic.json",
-        "delay_patch": delay_rel,
+        "delay_patch": delay_rel, "build_mode": ev["details"].get("build_mode") or "default",
     }
     hits = forbidden_terms(prompt, meta)
     meta["prompt_forbidden_hits"] = hits

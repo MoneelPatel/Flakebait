@@ -1,6 +1,6 @@
 """End-to-end checks of the run topology, without an agent (no API calls).
 
-isolation   from inside the agent's container: no network except the model API through the proxy, Maven
+isolation   from inside the agent's container: no network except the model API through the meter, Maven
             cannot download, one commit in git history, no hidden metadata visible; plus what an agent
             could find about the shim (recorded, not hidden).
 shim        through the real path (agent container -> fb-ext -> oracle -> reproduction -> relay):
@@ -22,12 +22,14 @@ from .harness import ORACLE_PORT, Run, sh
 ISOLATION = [
     ("direct internet access fails", "curl -s -m 8 --noproxy '*' https://example.com -o /dev/null; echo rc=$?",
      lambda o: "rc=0" not in o),
-    ("proxy refuses other hosts", "curl -s -m 8 -o /dev/null -w '%{http_code}' https://example.com; echo; true",
-     lambda o: "000" in o or "403" in o),
-    ("proxy refuses Maven Central", "curl -s -m 8 -o /dev/null -w '%{http_code}' https://repo1.maven.org/maven2/; echo",
-     lambda o: "000" in o or "403" in o),
-    ("model API reachable through proxy", "curl -s -m 15 -o /dev/null -w '%{http_code}' https://api.anthropic.com/v1/models; echo",
-     lambda o: o.strip()[:3] in ("200", "401", "403", "404", "405")),
+    ("Maven Central unreachable", "curl -s -m 8 -o /dev/null -w '%{http_code}' https://repo1.maven.org/maven2/; echo",
+     lambda o: o.strip().startswith("000")),
+    ("meter forwards only to the OpenAI API (any Host header)",
+     "curl -s -m 15 -H 'Host: example.com' http://fb-meter:8080/v1/models | head -c 300; echo",
+     lambda o: '"object"' in o or '"error"' in o),
+    ("real API key not in the agent's environment",
+     "env | grep -c '^OPENAI_API_KEY=' ; [ \"$CODEX_API_KEY\" = sk-flakebait-meter ] && echo placeholder-only",
+     lambda o: o.split()[:1] == ["0"] and "placeholder-only" in o),
     ("Maven cannot download (online settings forced)",
      "printf '<settings><offline>false</offline></settings>' > /tmp/online.xml; "
      "mvn -B -q -s /tmp/online.xml dependency:get -Dartifact=org.example:does-not-exist:1.0 >/tmp/mvn.log 2>&1; "
@@ -45,7 +47,8 @@ ISOLATION = [
 DISCOVERABLE = [
     ("which mvn", "which mvn; readlink -f $(which mvn)"),
     ("Maven lib/ext", "ls /usr/share/maven/lib/ext"),
-    ("oracle hostname resolves", "getent hosts fb-oracle || echo unresolved"),
+    ("oracle and meter hostnames resolve", "getent hosts fb-oracle fb-meter || echo unresolved"),
+    ("mvn wrapper", "head -5 /usr/local/bin/mvn"),
 ]
 
 
@@ -59,9 +62,9 @@ def isolation(instance: str) -> list[dict]:
             r = sh(["docker", "exec", run.names["agent"], "bash", "-lc", cmd], timeout=300)
             out = (r.stdout + r.stderr).strip()
             rows.append({"check": name, "pass": bool(ok(out)), "output": out[-300:]})
-        rows.append({"check": "agent's web tools disabled", "pass": "--disallowedTools" in " ".join(
-            run.agent_cmd("x", None)) and "WebSearch,WebFetch" in run.agent_cmd("x", None),
-            "output": "claude ... --disallowedTools WebSearch,WebFetch"})
+        cmd = run.agent_cmd("x", None)
+        rows.append({"check": "agent's web search disabled", "pass": 'web_search="disabled"' in cmd,
+                     "output": "codex exec ... -c web_search=\"disabled\""})
         for name, cmd in DISCOVERABLE:
             r = sh(["docker", "exec", run.names["agent"], "bash", "-lc", cmd], timeout=60)
             rows.append({"check": f"(discoverable) {name}", "pass": None, "output": (r.stdout + r.stderr).strip()[-300:]})

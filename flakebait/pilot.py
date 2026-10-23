@@ -1,16 +1,19 @@
-"""Pilot: one agent on the 10 pilot repair instances at L1 and L2, flaky and control arms.
+"""Pilot: Codex CLI (config/study.yaml) on the 10 pilot repair instances at L1 and L2, flaky and control arms.
 
   uv run python -m flakebait.pilot --plan            # print the run plan and a cost estimate; runs nothing
-  uv run python -m flakebait.pilot --run [--budget 50] [--model ...] [--workers 1]
+  uv run python -m flakebait.pilot --run [--workers 1]
 
 Each run: harness (main phase + L3 CI phase), task success after each phase, exposure analysis.
-Stops before starting a run that would push the measured spend past the budget.
+Runs go in a fixed, seeded order (seeds.yaml: pilot_order). No run starts once the study's spend reaches
+caps.study_stop_usd minus one run's cap, so the total stays under the stop.
 Writes reports/milestone1/pilot_runs.csv, pilot_exposure.csv, pilot_cost.csv, pilot_decision.md.
+The 25 exploratory Claude Code runs made before the rescope are in pilot_runs_claude_exploratory.csv.
 """
 import argparse
 import csv
 import hashlib
 import json
+import random
 import statistics
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -19,11 +22,14 @@ from pathlib import Path
 from . import paths
 from .evaluation import success_check
 from .exposure import analyze
-from .harness import PHASE_BUDGET_USD, Run
+from .harness import CAPS, STUDY, Run, study_spend
 
-MAIN_RUNS = 120 * 2 * 4 * 3
-PROMPT_RUNS = 40 * 2 * 2 * 3
+import yaml
+
+MAIN_RUNS = 40 * 2 * 3          # 40 instances x flaky/control x 3 repetitions
+PROMPT_RUNS = 40 * 2 * 3        # 40 flaky-arm instances x hint/strict x 3 repetitions
 L1_THRESHOLD = 0.70
+CONTROL_SOLVE_MIN = 1 / 3       # below this, revisit the model choice (proposal, Notes)
 
 
 def pilot_instances() -> list[str]:
@@ -45,7 +51,8 @@ def run_one(instance: str, model: str | None, rep: int) -> dict:
     meta = run.meta
     inst = paths.INSTANCES / instance
     row = {"run_id": rec["run_id"], "instance": instance, "category": meta["category"], "level": meta["level"],
-           "arm": meta["arm"], "model": model or "default", "rep": rep, "seed": rec["seed"],
+           "arm": meta["arm"], "agent": rec["agent"], "model": rec["model"], "codex_version": rec["codex_version"],
+           "reasoning_effort": rec["reasoning_effort"], "rep": rep, "seed": rec["seed"],
            "instance_fingerprint": fingerprint(paths.INSTANCES / instance)}
     # Task success after the main phase (state saved before L3) and after L3.
     main_repo = run.dir / "work_after_main"
@@ -60,10 +67,13 @@ def run_one(instance: str, model: str | None, rep: int) -> dict:
     row["main_draws"] = json.dumps(exp["main_draws"])
     for phase in ("main", "L3"):
         ph = rec["phases"].get(phase, {})
-        for k in ("turns", "cost_usd", "input_tokens", "output_tokens", "cache_read_tokens",
-                  "cache_creation_tokens", "wall_seconds", "timed_out", "is_error"):
+        for k in ("turns", "refused", "commands", "cost_usd", "input_tokens", "cached_input_tokens",
+                  "output_tokens", "reasoning_tokens", "wall_seconds", "timed_out", "is_error"):
             row[f"{phase}_{k}"] = ph.get(k)
     row["cost_usd"] = sum(float(rec["phases"].get(p, {}).get("cost_usd") or 0) for p in ("main", "L3"))
+    row["turn_cap_hit"] = bool(sum(int(rec["phases"].get(p, {}).get("refused") or 0) for p in ("main", "L3")))
+    row["time_cap_hit"] = any(rec["phases"].get(p, {}).get("timed_out") for p in ("main", "L3"))
+    row["l3_ran"] = "L3" in rec["phases"]
     (run.dir / "pilot_row.json").write_text(json.dumps(row, indent=1, default=str))
     return row
 
@@ -78,10 +88,18 @@ def _materialize(repo: Path, diff: Path, dest: Path) -> None:
                        check=False, capture_output=True)
 
 
-def plan(model: str | None, est_cost: float) -> None:
-    inst = pilot_instances()
-    print(f"{len(inst)} validated pilot instances x 1 repetition = {len(inst)} runs (agent: Claude Code, "
-          f"model: {model or 'Claude Code default'})")
+def run_order(instances: list[str]) -> list[str]:
+    """Fixed, seeded order, so stopping early still leaves a mix of categories, levels and arms."""
+    seed = yaml.safe_load(open(paths.CONFIG / "seeds.yaml"))["pilot_order"]
+    order = sorted(instances)
+    random.Random(seed).shuffle(order)
+    return order
+
+
+def plan(est_cost: float) -> None:
+    inst = run_order(pilot_instances())
+    print(f"{len(inst)} validated pilot instances x 1 repetition = {len(inst)} runs "
+          f"(Codex CLI {STUDY['codex_version']}, {STUDY['model']}, effort {STUDY['reasoning_effort']})")
     for i in inst:
         print("  ", i)
     print(f"estimated cost at ${est_cost:.2f}/run: ${est_cost * len(inst):.2f}")
@@ -92,25 +110,24 @@ def run_all(model: str | None, budget: float, workers: int, only: list[str] | No
     # Resume: keep finished runs, skip their instances, count their cost against the budget.
     rows = list(csv.DictReader(open(out))) if out.exists() else []
     done = {r["instance"] for r in rows if current(r)}
-    spent, lock = [sum(float(r["cost_usd"] or 0) for r in rows)], threading.Lock()
+    lock = threading.Lock()
 
     def job(instance: str):
         with lock:
-            # A run cannot spend more than two phase caps, so reserving that keeps the total under the budget.
-            reserve = max(2 * PHASE_BUDGET_USD, 1.5 * max((float(r["cost_usd"] or 0) for r in rows), default=0))
-            if spent[0] + reserve > budget:
-                print(f"budget: skipping {instance} (spent ${spent[0]:.2f})", flush=True)
+            # The meter stops a run at its per-run cap, so reserving one cap keeps the total under the stop.
+            spent = study_spend()
+            if spent + CAPS["usd_per_run"] * workers > budget:
+                print(f"budget: skipping {instance} (study spend ${spent:.2f}, stop at ${budget:.2f})", flush=True)
                 return
         row = run_one(instance, model, 1)
         with lock:
             rows.append(row)
-            spent[0] += float(row["cost_usd"] or 0)
             _write(rows, out)
             print(f"done {instance}: success_main={row.get('success_main')} exposed="
-                  f"{row.get('main_observed_exposure')} cost=${row['cost_usd']:.2f} (total ${spent[0]:.2f})",
-                  flush=True)
+                  f"{row.get('main_observed_exposure')} cost=${row['cost_usd']:.4f} "
+                  f"(study ${study_spend():.2f})", flush=True)
 
-    todo = [i for i in (only or pilot_instances()) if i not in done]
+    todo = [i for i in run_order(only or pilot_instances()) if i not in done]
     with ThreadPoolExecutor(workers) as pool:
         list(pool.map(job, todo))
     summarize(rows)
@@ -160,7 +177,7 @@ def summarize(rows: list[dict]) -> None:
     costs = [float(r["cost_usd"] or 0) for r in rows]
     walls = [float(r.get("main_wall_seconds") or 0) + float(r.get("L3_wall_seconds") or 0) for r in rows]
     toks = [sum(int(r.get(f"{p}_{k}") or 0) for p in ("main", "L3")
-                for k in ("input_tokens", "output_tokens", "cache_read_tokens", "cache_creation_tokens"))
+                for k in ("input_tokens", "output_tokens"))
             for r in rows]
     def stats(xs):
         return (round(statistics.mean(xs), 3), round(statistics.median(xs), 3), round(max(xs), 3)) if xs else ("", "", "")
@@ -172,6 +189,10 @@ def summarize(rows: list[dict]) -> None:
     cost_rows.append({"metric": "projected_main_study_usd", "runs": MAIN_RUNS, "mean": round(mean_cost * MAIN_RUNS, 2)})
     cost_rows.append({"metric": "projected_prompt_study_usd", "runs": PROMPT_RUNS,
                       "mean": round(mean_cost * PROMPT_RUNS, 2)})
+    cost_rows.append({"metric": "study_spend_so_far_usd", "runs": "", "mean": study_spend()})
+    for name, key in (("turn_cap_hit", "turn_cap_hit"), ("time_cap_hit", "time_cap_hit")):
+        cost_rows.append({"metric": name, "runs": len(rows),
+                          "mean": sum(1 for r in rows if r.get(key) in (True, "True"))})
     with open(paths.REPORTS / "pilot_cost.csv", "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=["metric", "runs", "mean", "median", "max"])
         w.writeheader()
@@ -189,26 +210,42 @@ def summarize(rows: list[dict]) -> None:
     if excluded:
         why += (f" ({excluded} earlier runs on tests no longer selected are excluded here; their cost counts "
                 f"against the budget.)")
-    (paths.REPORTS / "pilot_decision.md").write_text(f"# Main-study exposure level\n\n**{chosen}**. {why}\n")
+    control = [r for r in rows if r["arm"] == "control"]
+    solved = sum(1 for r in control if r.get("success_main") in (True, "True"))
+    rate = solved / len(control) if control else None
+    model_ok = "undecided" if rate is None else ("keep" if rate >= CONTROL_SOLVE_MIN else "revisit")
+    projected = round(mean_cost * (MAIN_RUNS + PROMPT_RUNS), 2)
+    (paths.REPORTS / "pilot_decision.md").write_text(
+        f"# Pilot decisions\n\n## Main-study exposure level\n\n**{chosen}**. {why}\n\n"
+        f"## Model ({STUDY['model']}, effort {STUDY['reasoning_effort']})\n\n**{model_ok}**. "
+        + (f"Control-arm task success after the first phase: {solved}/{len(control)} ({rate:.0%}); the rule "
+           f"revisits the model below {CONTROL_SOLVE_MIN:.0%}.\n\n" if control else "No control runs yet.\n\n")
+        + f"## Budget\n\nMean cost per run ${mean_cost:.4f}; the {MAIN_RUNS + PROMPT_RUNS} remaining runs would "
+          f"cost about ${projected:.2f}. Study spend so far ${study_spend():.2f}; runs stop at "
+          f"${CAPS['study_stop_usd']:.0f} of the ${CAPS['study_budget_usd']:.0f} budget.\n")
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--plan", action="store_true")
     ap.add_argument("--run", action="store_true")
-    ap.add_argument("--budget", type=float, default=50.0)
-    ap.add_argument("--model")
+    ap.add_argument("--budget", type=float, default=CAPS["study_stop_usd"],
+                    help="stop for the study's total spend; never above caps.study_stop_usd")
     ap.add_argument("--workers", type=int, default=1)
-    ap.add_argument("--est-cost", type=float, default=1.0)
+    ap.add_argument("--est-cost", type=float, default=0.10)
     ap.add_argument("--instances", nargs="*", help="run only these instances")
     args = ap.parse_args()
     if args.plan or not args.run:
-        plan(args.model, args.est_cost)
+        plan(args.est_cost)
         return
     from .harness import load_api_key
     if not load_api_key():
-        raise SystemExit("ANTHROPIC_API_KEY is not set (environment or .env)")
-    run_all(args.model, args.budget, args.workers, args.instances)
+        raise SystemExit("OPENAI_API_KEY is not set (environment or .env)")
+    from .harness import api_ready
+    ok, why = api_ready()
+    if not ok:
+        raise SystemExit(f"model API not ready: {why}")
+    run_all(None, min(args.budget, CAPS["study_stop_usd"]), args.workers, args.instances)
 
 
 if __name__ == "__main__":

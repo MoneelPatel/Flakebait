@@ -1,18 +1,24 @@
 """Runs one agent on one instance, headless and isolated, and records everything.
 
 Topology (one internal Docker network per run, no route to the internet):
-  agent   fb-agent:<java>   the agent's repo at /work; Maven offline; fb-ext in lib/ext
+  agent   fb-agent:<java>   Codex CLI (config/study.yaml); the repo at /work; Maven offline; fb-ext in lib/ext;
+                            condensed Maven output (/usr/local/bin/mvn)
   oracle  fb-base:<java>    alias fb-oracle; reads /work read-only; state in runs/<id>/oracle (not mounted
                             into the agent's container)
-  proxy   fb-base:8         alias fb-proxy; also on the default bridge; CONNECT only to the model API
+  meter   fb-base:8         alias fb-meter; also on the default bridge; reverse proxy to api.openai.com only.
+                            Holds the real API key, enforces the turn and dollar caps, logs every call's tokens
+                            and cost to runs/<id>/meter/meter_log.jsonl (docker/meter.py)
 
 Phases: "main" (the task prompt), then "L3": the harness runs the module's full suite as CI (failing
 configuration forced in the flaky arm; the control arm runs the same) and sends the real log back.
 
-Outputs in runs/<run_id>/: trajectory_main.jsonl, trajectory_L3.jsonl, ci_log.txt, diff_main.patch,
-diff_final.patch, oracle/oracle_log.jsonl, run.json.
+Caps (config/study.yaml): model calls and dollars per run in the meter; agent wall-clock time across both phases
+here.
 
-Usage: uv run python -m flakebait.harness --instance repair-...-L2-flaky [--model ...] [--rep 1]
+Outputs in runs/<run_id>/: trajectory_main.jsonl, trajectory_L3.jsonl, ci_log.txt, diff_main.patch,
+diff_final.patch, oracle/oracle_log.jsonl, meter/meter_log.jsonl, run.json.
+
+Usage: uv run python -m flakebait.harness --instance repair-...-L2-flaky [--rep 1]
 """
 import argparse
 import hashlib
@@ -30,12 +36,14 @@ import yaml
 
 from . import paths, reproflake as rf
 from .containers import image_for
+from .repro import BUILD_MODES
 
-AGENT_TIMEOUT_S = 45 * 60
-MAX_TURNS = 150
-PHASE_BUDGET_USD = 4.0      # hard per-phase spend cap (Claude Code --max-budget-usd); a run has <= 2 phases
+STUDY = yaml.safe_load(open(paths.CONFIG / "study.yaml"))
+CAPS = STUDY["caps"]
 CI_LOG_CHARS = 15_000
 ORACLE_PORT = 8765
+METER_PORT = 8080
+PLACEHOLDER_KEY = "sk-flakebait-meter"    # what the agent's Codex sends; the meter swaps in the real key
 
 PROMPT_VARIANTS = {
     "neutral": "",
@@ -61,16 +69,16 @@ def _settings_offline(path: Path) -> None:
     path.write_text(text)
 
 
-def load_api_key() -> bool:
-    """ANTHROPIC_API_KEY from the environment, or else from the repo's .env (gitignored). Never logged."""
-    if os.environ.get("ANTHROPIC_API_KEY"):
+def load_api_key(name: str = "OPENAI_API_KEY") -> bool:
+    """The API key from the environment, or else from the repo's .env (gitignored). Never logged."""
+    if os.environ.get(name):
         return True
     env = paths.ROOT / ".env"
     if env.exists():
         for line in env.read_text().splitlines():
             key, _, value = line.strip().removeprefix("export ").partition("=")
-            if key == "ANTHROPIC_API_KEY" and value:
-                os.environ["ANTHROPIC_API_KEY"] = value.strip().strip("'\"")
+            if key == name and value:
+                os.environ[name] = value.strip().strip("'\"")
                 return True
     return False
 
@@ -85,22 +93,25 @@ def shim_seed(run_id: str) -> int:
 
 
 class Run:
-    def __init__(self, instance: str, agent: str = "claude-code", model: str | None = None, rep: int = 1,
+    def __init__(self, instance: str, agent: str = STUDY["agent"], model: str | None = None, rep: int = 1,
                  prompt_variant: str = "neutral", p: float = 0.5, mode: str = "agent", l3: bool = True,
                  run_id: str | None = None):
         self.instance_dir = paths.INSTANCES / instance
         self.meta = json.loads((self.instance_dir / "meta.json").read_text())
+        model = model or STUDY["model"]
         self.agent, self.model, self.rep, self.variant = agent, model, rep, prompt_variant
         self.p, self.mode, self.l3 = p, mode, l3
         self.run_id = run_id or f"{instance}--{agent}--{prompt_variant}--r{rep}"
         self.dir = paths.RUNS / self.run_id
         self.tag = uuid.uuid4().hex[:8]
         self.net = f"fbnet-{self.tag}"
-        self.names = {k: f"fb-{k}-{self.tag}" for k in ("agent", "oracle", "proxy")}
+        self.names = {k: f"fb-{k}-{self.tag}" for k in ("agent", "oracle", "meter")}
         self.record: dict = {"run_id": self.run_id, "instance": instance, "agent": agent, "model": model,
                              "rep": rep, "prompt_variant": prompt_variant, "p": p, "mode": mode,
                              "level": self.meta["level"], "arm": self.meta["arm"],
-                             "category": self.meta["category"], "seed": shim_seed(self.run_id), "phases": {}}
+                             "category": self.meta["category"], "seed": shim_seed(self.run_id), "phases": {},
+                             "codex_version": STUDY["codex_version"], "reasoning_effort": STUDY["reasoning_effort"],
+                             "caps": CAPS, "prices": STUDY["prices"], "build_mode": self.meta.get("build_mode")}
 
     # -------------------------------------------------------------------------------- setup
 
@@ -121,12 +132,14 @@ class Run:
             sh(["docker", "run", "--rm", "--network", "none", "-v", f"{self.dir / name}:/m2", image, "bash", "-c",
                 f"R=/m2/repository; {paths.TOOLS_MERGE}"]).check_returncode()
 
+        (self.dir / "meter").mkdir()
         state = self.dir / "oracle"
         state.mkdir()
         cfg = {"instance": self.meta["instance"], "category": self.meta["category"], "module": self.meta["module"],
                "victim": self.meta["victim"], "polluter": self.meta.get("polluter", ""),
                "nondex_seed": self.meta.get("nondex_seed", ""), "java": self.meta["java"],
-               "seed": self.record["seed"], "p": self.p, "mode": self.mode, "work": "/work"}
+               "seed": self.record["seed"], "p": self.p, "mode": self.mode, "work": "/work",
+               "build_mode": self.meta.get("build_mode", "default")}
         (state / "config.json").write_text(json.dumps(cfg, indent=1))
         if self.meta.get("delay_patch"):
             shutil.copy(self.instance_dir / self.meta["delay_patch"], state / "delay.patch")
@@ -134,12 +147,18 @@ class Run:
     def start(self) -> None:
         java = image_for(self.meta["java"]).split(":")[1]
         sh(["docker", "network", "create", "--internal", self.net]).check_returncode()
-        # Proxy: on the internal network and the default bridge.
-        sh(["docker", "run", "-d", "--rm", "--name", self.names["proxy"], "--network", self.net,
-            "--network-alias", "fb-proxy", "-v", f"{paths.ROOT / 'docker' / 'proxy.py'}:/proxy.py:ro",
-            "-e", "ALLOWED_HOSTS=api.anthropic.com", "fb-base:8", "python3", "-u", "/proxy.py", "3128"]
-           ).check_returncode()
-        sh(["docker", "network", "connect", "bridge", self.names["proxy"]]).check_returncode()
+        # Meter: on the internal network and the default bridge (its only peer outside is api.openai.com).
+        pr = STUDY["prices"]
+        sh(["docker", "run", "-d", "--rm", "--name", self.names["meter"], "--network", self.net,
+            "--network-alias", "fb-meter", "-v", f"{paths.ROOT / 'docker' / 'meter.py'}:/meter.py:ro",
+            "--mount", f"type=bind,source={self.dir / 'meter'},target=/meter",
+            "-e", "OPENAI_API_KEY", "-e", f"TURN_CAP={CAPS['turns_per_run']}", "-e", f"RUN_CAP_USD={CAPS['usd_per_run']}",
+            "-e", f"PRICE_INPUT={pr['input']}", "-e", f"PRICE_CACHED={pr['cached_input']}",
+            "-e", f"PRICE_OUTPUT={pr['output']}", "-e", f"LONG_CONTEXT_TOKENS={pr['long_context_tokens']}",
+            "-e", f"LONG_CONTEXT_FACTOR_INPUT={pr['long_context_factor_input']}",
+            "-e", f"LONG_CONTEXT_FACTOR_OUTPUT={pr['long_context_factor_output']}",
+            "fb-base:8", "python3", "-u", "/meter.py", str(METER_PORT)]).check_returncode()
+        sh(["docker", "network", "connect", "bridge", self.names["meter"]]).check_returncode()
         # Oracle.
         sh(["docker", "run", "-d", "--rm", "--name", self.names["oracle"], "--network", self.net,
             "--network-alias", "fb-oracle", "--memory", os.environ.get("FB_MEM", "3g"),
@@ -154,9 +173,9 @@ class Run:
         # Agent.
         args = ["docker", "run", "-d", "--rm", "--name", self.names["agent"], "--network", self.net,
                 "--memory", os.environ.get("FB_MEM", "3g"),
-                "-e", "ANTHROPIC_API_KEY", "-e", "HTTPS_PROXY=http://fb-proxy:3128",
-                "-e", "HTTP_PROXY=http://fb-proxy:3128", "-e", "NO_PROXY=fb-oracle,localhost,127.0.0.1",
-                "-e", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1", "-e", "DISABLE_AUTOUPDATER=1",
+                "-e", f"CODEX_API_KEY={PLACEHOLDER_KEY}",
+                "-e", f"FB_MVN_PROPS={BUILD_MODES[self.meta.get('build_mode') or 'default']['props']}",
+                "-e", f"FB_STACK_LINES={STUDY['maven_output']['stack_lines_per_failure']}",
                 "--mount", f"type=bind,source={self.dir / 'work'},target=/work",
                 "--mount", f"type=bind,source={self.dir / 'm2_agent'},target=/home/dev/.m2"]
         if self.meta["category"] == "OD":
@@ -184,27 +203,38 @@ class Run:
     # -------------------------------------------------------------------------------- agent
 
     def agent_cmd(self, prompt: str, resume: str | None) -> list[str]:
-        cmd = ["claude", "-p", prompt, "--output-format", "stream-json", "--verbose",
-               "--max-turns", str(MAX_TURNS), "--max-budget-usd", str(PHASE_BUDGET_USD), "--dangerously-skip-permissions",
-               "--disallowedTools", "WebSearch,WebFetch"]
-        if self.model:
-            cmd += ["--model", self.model]
+        """Codex CLI, headless. The container is the sandbox, so Codex's own sandbox and approvals are off;
+        user config and rules are ignored so every setting is the one written here."""
+        opts = ["--json", "--ignore-user-config", "--ignore-rules", "--skip-git-repo-check",
+                "--dangerously-bypass-approvals-and-sandbox", "--color", "never", "-m", self.model,
+                "-c", f'model_reasoning_effort="{STUDY["reasoning_effort"]}"',
+                # The meter as a provider of its own: plain HTTP Responses API, no WebSocket transport (the meter
+                # relays HTTP only). The key Codex sends is a placeholder; the meter swaps in the real one.
+                "-c", 'model_provider="fbmeter"',
+                "-c", ('model_providers.fbmeter={name="OpenAI via meter", '
+                       f'base_url="http://fb-meter:{METER_PORT}/v1", env_key="CODEX_API_KEY", '
+                       'wire_api="responses", supports_websockets=false}'),
+                "-c", 'web_search="disabled"', "-c", "check_for_update_on_startup=false",
+                "-c", "analytics.enabled=false", "-c", "feedback.enabled=false"]
         if resume:
-            cmd += ["--resume", resume]
-        return cmd
+            return ["codex", "exec", "resume", resume, *opts, prompt]
+        return ["codex", "exec", *opts, prompt]
 
     def run_agent(self, phase: str, prompt: str, resume: str | None = None) -> dict:
         out_path = self.dir / f"trajectory_{phase}.jsonl"
+        used = sum(ph.get("wall_seconds", 0) for ph in self.record["phases"].values())
+        budget = max(CAPS["wall_seconds_per_run"] - used, 0)
         start = time.time()
         with open(out_path, "w") as out:
             try:
                 p = subprocess.run(["docker", "exec", "-w", "/work", self.names["agent"], *self.agent_cmd(prompt, resume)],
-                                   stdout=out, stderr=subprocess.PIPE, text=True, timeout=AGENT_TIMEOUT_S)
+                                   stdout=out, stderr=subprocess.PIPE, text=True, timeout=budget or 1)
                 rc, timed_out, err = p.returncode, False, p.stderr[-3000:]
             except subprocess.TimeoutExpired:
-                sh(["docker", "exec", self.names["agent"], "pkill", "-f", "claude"])
+                sh(["docker", "exec", self.names["agent"], "pkill", "-f", "codex"])
                 rc, timed_out, err = -1, True, ""
         summary = summarize_trajectory(out_path)
+        summary.update(meter_summary(self.dir / "meter" / "meter_log.jsonl", start, time.time()))
         summary.update({"rc": rc, "timed_out": timed_out, "stderr": err, "wall_seconds": round(time.time() - start, 1)})
         return summary
 
@@ -253,7 +283,7 @@ class Run:
                 self.record["phases"]["L3"] = l3
             self.diff("final")
         finally:
-            self.record["proxy_log"] = sh(["docker", "logs", self.names["proxy"]]).stdout[-5000:]
+            self.record["meter_stderr"] = sh(["docker", "logs", self.names["meter"]]).stderr[-3000:]
             self.record["oracle_stderr"] = sh(["docker", "logs", self.names["oracle"]]).stderr[-3000:]
             self.stop()
             self.record["finished"] = time.time()
@@ -274,9 +304,9 @@ def ci_excerpt(log: str) -> str:
 
 
 def summarize_trajectory(path: Path) -> dict:
-    """Session id, turns, cost and tokens from Claude Code's stream-json output."""
-    out = {"session_id": None, "turns": 0, "cost_usd": None, "input_tokens": 0, "output_tokens": 0,
-           "cache_read_tokens": 0, "cache_creation_tokens": 0, "result": None, "is_error": None}
+    """Session id, commands, final message and errors from Codex's --json event stream."""
+    out = {"session_id": None, "commands": 0, "file_changes": 0, "result": None, "is_error": False,
+           "errors": []}
     if not path.exists():
         return out
     for line in path.read_text(errors="replace").splitlines():
@@ -284,32 +314,104 @@ def summarize_trajectory(path: Path) -> dict:
             ev = json.loads(line)
         except json.JSONDecodeError:
             continue
-        if ev.get("session_id"):
-            out["session_id"] = ev["session_id"]
-        if ev.get("type") == "result":
-            out["turns"] = ev.get("num_turns", 0)
-            out["cost_usd"] = ev.get("total_cost_usd")
-            out["result"] = (ev.get("result") or "")[:4000]
-            out["is_error"] = ev.get("is_error")
-            u = ev.get("usage") or {}
-            out["input_tokens"] = u.get("input_tokens", 0)
-            out["output_tokens"] = u.get("output_tokens", 0)
-            out["cache_read_tokens"] = u.get("cache_read_input_tokens", 0)
-            out["cache_creation_tokens"] = u.get("cache_creation_input_tokens", 0)
+        t = ev.get("type", "")
+        if t == "thread.started":
+            out["session_id"] = ev.get("thread_id")
+        elif t == "item.completed":
+            item = ev.get("item") or {}
+            kind = item.get("type") or item.get("item_type")
+            if kind == "command_execution":
+                out["commands"] += 1
+            elif kind == "file_change":
+                out["file_changes"] += 1
+            elif kind == "agent_message":
+                out["result"] = (item.get("text") or "")[:4000]
+        elif t in ("turn.failed", "error"):
+            out["is_error"] = True
+            out["errors"].append(json.dumps(ev)[:500])
+    return out
+
+
+def api_ready() -> tuple[bool, str]:
+    """One minimal request to the model, to check the key and the account's credit before starting runs.
+    Its cost is logged in runs/_preflight/meter/meter_log.jsonl, so it counts toward the study budget."""
+    import urllib.error
+    import urllib.request
+    if not load_api_key():
+        return False, "OPENAI_API_KEY is not set"
+    req = urllib.request.Request(
+        "https://api.openai.com/v1/responses",
+        data=json.dumps({"model": STUDY["model"], "input": "Reply OK.", "max_output_tokens": 16}).encode(),
+        headers={"Authorization": "Bearer " + os.environ["OPENAI_API_KEY"], "Content-Type": "application/json"})
+    log = paths.RUNS / "_preflight" / "meter" / "meter_log.jsonl"
+    log.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        body = json.loads(urllib.request.urlopen(req, timeout=60).read())
+    except urllib.error.HTTPError as e:
+        err = (json.loads(e.read() or b"{}").get("error") or {})
+        with open(log, "a") as f:
+            f.write(json.dumps({"t": round(time.time(), 3), "preflight": True, "status": e.code,
+                                "error": err.get("code"), "usd": 0.0}) + "\n")
+        return False, f"HTTP {e.code} {err.get('code')}: {(err.get('message') or '')[:160]}"
+    except Exception as e:
+        return False, f"{type(e).__name__}: {e}"
+    u = body.get("usage") or {}
+    pr = STUDY["prices"]
+    cached = int((u.get("input_tokens_details") or {}).get("cached_tokens") or 0)
+    usd = ((int(u.get("input_tokens") or 0) - cached) * pr["input"] + cached * pr["cached_input"]
+           + int(u.get("output_tokens") or 0) * pr["output"]) / 1e6
+    with open(log, "a") as f:
+        f.write(json.dumps({"t": round(time.time(), 3), "preflight": True, "status": 200, "model": body.get("model"),
+                            "usage": u, "usd": round(usd, 8)}) + "\n")
+    return True, f"ok ({body.get('model')})"
+
+
+def study_spend() -> float:
+    """Dollars spent on the model API so far in the whole study: every call any run's meter has logged
+    (pilot, main study, prompt study, smoke tests). The study budget is enforced against this total."""
+    total = 0.0
+    for log in paths.RUNS.glob("*/meter/meter_log.jsonl"):
+        for line in log.read_text().splitlines():
+            if line.strip():
+                total += json.loads(line).get("usd") or 0
+    return round(total, 6)
+
+
+def meter_summary(log: Path, start: float, end: float) -> dict:
+    """Model calls, tokens and cost between start and end, from the meter's log (the authoritative count)."""
+    out = {"turns": 0, "refused": 0, "cost_usd": 0.0, "input_tokens": 0, "cached_input_tokens": 0,
+           "output_tokens": 0, "reasoning_tokens": 0}
+    if not log.exists():
+        return out
+    for line in log.read_text().splitlines():
+        r = json.loads(line)
+        if not (start <= r.get("t", 0) <= end + 5):
+            continue
+        if r.get("refused"):
+            out["refused"] += 1
+        if not r.get("model_call"):
+            continue
+        out["turns"] += 1
+        out["cost_usd"] += r.get("usd") or 0
+        u = r.get("usage") or {}
+        out["input_tokens"] += int(u.get("input_tokens") or 0)
+        out["cached_input_tokens"] += int((u.get("input_tokens_details") or {}).get("cached_tokens") or 0)
+        out["output_tokens"] += int(u.get("output_tokens") or 0)
+        out["reasoning_tokens"] += int((u.get("output_tokens_details") or {}).get("reasoning_tokens") or 0)
+    out["cost_usd"] = round(out["cost_usd"], 6)
     return out
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--instance", required=True)
-    ap.add_argument("--model")
     ap.add_argument("--rep", type=int, default=1)
     ap.add_argument("--prompt", default="neutral", choices=sorted(PROMPT_VARIANTS))
     ap.add_argument("--no-l3", action="store_true")
     args = ap.parse_args()
     if not load_api_key():
-        raise SystemExit("ANTHROPIC_API_KEY is not set (environment or .env)")
-    rec = Run(args.instance, model=args.model, rep=args.rep, prompt_variant=args.prompt, l3=not args.no_l3).execute()
+        raise SystemExit("OPENAI_API_KEY is not set (environment or .env)")
+    rec = Run(args.instance, rep=args.rep, prompt_variant=args.prompt, l3=not args.no_l3).execute()
     print(json.dumps({k: rec[k] for k in ("run_id", "phases")}, indent=1, default=str)[:3000])
 
 
