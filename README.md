@@ -81,8 +81,8 @@ config ignored (`config/study.yaml`; the exact command is in `harness.Run.agent_
 to the internet and Maven runs offline. The agent reaches the model only through **the meter**
 (`docker/meter.py`), a reverse proxy to `api.openai.com` that holds the real API key (the agent has a placeholder),
 logs every call's tokens and cost, and refuses calls beyond the per-run caps. Each instance repo is a fresh
-`git init` with one commit. Caps per run (both phases together): **30 model calls, 15 minutes of agent time,
-$1.00**. The study stops starting runs when the total logged spend reaches **$95** of the **$100** budget
+`git init` with one commit. Caps per run: **30 model calls per phase** (main and L3 each; deviation #28), **15 minutes of
+agent time and $1.00** for both phases together. The study stops starting runs when the total logged spend reaches **$95** of the **$100** budget
 (`harness.study_spend`). Runs execute in a fixed, seeded order. Each (instance, arm, prompt) cell runs 3 times.
 
 ## Evaluation

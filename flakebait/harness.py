@@ -151,15 +151,16 @@ class Run:
         if self.meta.get("delay_patch"):
             shutil.copy(self.instance_dir / self.meta["delay_patch"], state / "delay.patch")
 
-    def start(self) -> None:
-        java = image_for(self.meta["java"]).split(":")[1]
-        sh(["docker", "network", "create", "--internal", self.net]).check_returncode()
-        # Meter: on the internal network and the default bridge (its only peer outside is api.openai.com).
+    def start_meter(self, usd_cap: float) -> None:
+        """The meter, on the internal network and the default bridge (its only peer outside is api.openai.com).
+        A fresh meter per phase gives each phase its own call cap (deviation #28); the dollar cap passed in is
+        what the run has left. The log is appended to, never replaced."""
+        sh(["docker", "rm", "-f", self.names["meter"]])
         pr = STUDY["prices"]
         sh(["docker", "run", "-d", "--rm", "--name", self.names["meter"], "--network", self.net,
             "--network-alias", "fb-meter", "-v", f"{paths.ROOT / 'docker' / 'meter.py'}:/meter.py:ro",
             "--mount", f"type=bind,source={self.dir / 'meter'},target=/meter",
-            "-e", "OPENAI_API_KEY", "-e", f"TURN_CAP={CAPS['turns_per_run']}", "-e", f"RUN_CAP_USD={CAPS['usd_per_run']}",
+            "-e", "OPENAI_API_KEY", "-e", f"TURN_CAP={CAPS['turns_per_phase']}", "-e", f"RUN_CAP_USD={usd_cap}",
             "-e", f"PRICE_INPUT={pr['input']}", "-e", f"PRICE_CACHED={pr['cached_input']}",
             "-e", f"PRICE_CACHE_WRITE={pr['cache_write']}",
             "-e", f"PRICE_OUTPUT={pr['output']}", "-e", f"LONG_CONTEXT_TOKENS={pr['long_context_tokens']}",
@@ -167,6 +168,16 @@ class Run:
             "-e", f"LONG_CONTEXT_FACTOR_OUTPUT={pr['long_context_factor_output']}",
             "fb-base:8", "python3", "-u", "/meter.py", str(METER_PORT)]).check_returncode()
         sh(["docker", "network", "connect", "bridge", self.names["meter"]]).check_returncode()
+        for _ in range(30):     # wait until it answers on the internal network
+            if sh(["docker", "exec", self.names["meter"], "python3", "-c",
+                   f"import socket; socket.create_connection(('127.0.0.1', {METER_PORT}), 1)"]).returncode == 0:
+                return
+            time.sleep(0.5)
+
+    def start(self) -> None:
+        java = image_for(self.meta["java"]).split(":")[1]
+        sh(["docker", "network", "create", "--internal", self.net]).check_returncode()
+        self.start_meter(CAPS["usd_per_run"])
         # Oracle.
         sh(["docker", "run", "-d", "--rm", "--name", self.names["oracle"], "--network", self.net,
             "--network-alias", "fb-oracle", "--memory", os.environ.get("FB_MEM", "3g"),
@@ -283,6 +294,7 @@ class Run:
             self.diff("main")
             if self.l3 and main.get("session_id"):
                 self.oracle_phase("L3", "force_failing")
+                self.start_meter(max(CAPS["usd_per_run"] - main.get("cost_usd", 0), 0.0))
                 green, log = self.ci()
                 excerpt = ci_excerpt(log)
                 msg = (CI_PASSED if green else CI_FAILED).format(module=self.meta["module"], log=excerpt)

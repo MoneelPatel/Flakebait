@@ -51,7 +51,7 @@ These protect the validity of the study. If a change would violate one, stop and
 - Determinism checks are 20/20: failing config fails, passing config passes, `Fixed.patch` passes under the failing config. Repeat them on each seeded-fault version.
 
 **Budget**
-- $100 total for model API calls. Every call goes through a meter and is logged; `harness.study_spend()` is the total. No run starts once that total plus one run's cap would pass $95 (`config/study.yaml`). Per run: 30 model calls, 15 minutes of agent time, $1.00.
+- $100 total for model API calls. Every call goes through a meter and is logged; `harness.study_spend()` is the total. No run starts once that total plus one run's cap would pass $95 (`config/study.yaml`). Per run: 30 model calls per phase (main, L3), 15 minutes of agent time and $1.00 for both phases.
 - Never call the model API outside the meter or `harness.api_ready()` (which logs its cost).
 - If the projected cost is too high: cut the strict prompt to one repetition, then the turn cap to 20. **Never cut flaky categories, the flaky/control pairing, or the three main-study repetitions.**
 

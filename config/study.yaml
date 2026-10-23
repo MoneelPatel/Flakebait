@@ -5,7 +5,7 @@ model: gpt-6-luna
 reasoning_effort: medium            # Codex's default
 
 caps:
-  turns_per_run: 30                 # model calls, counted by the meter, main + L3 phases together
+  turns_per_phase: 30               # model calls, counted by the meter; main and L3 phases each (deviation #28)
   wall_seconds_per_run: 900         # agent time, main + L3 phases together (CI time excluded)
   usd_per_run: 1.00                 # safety stop in the meter; far above the expected $0.05-0.15
   study_stop_usd: 95.0              # no run starts once the study total reaches this ($5 left for runs in flight)
