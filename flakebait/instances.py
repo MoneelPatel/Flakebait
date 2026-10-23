@@ -58,12 +58,14 @@ def instance_id(c: rf.Candidate, level: str, arm: str) -> str:
 
 
 def pilot_tests(accepted: list[rf.Candidate]) -> list[rf.Candidate]:
-    """The 10 pilot tests: per category, the first accepted tests in a seeded order, quota 3/3/2/2."""
-    seed = yaml.safe_load(open(paths.CONFIG / "seeds.yaml"))["pilot_order"]
+    """The 10 pilot tests: per category, the first accepted tests in (shuffled) selection order, 3/3/2/2.
+
+    Selection order is already random, and this rule does not depend on tests accepted later, so the pilot
+    can start before selection finishes.
+    """
     out = []
     for cat, quota in PILOT_QUOTA.items():
-        pool = sorted((c for c in accepted if c.category == cat), key=lambda c: c.result_container)
-        random.Random(f"{seed}:{cat}").shuffle(pool)
+        pool = sorted((c for c in accepted if c.category == cat), key=lambda c: c.position)
         out += pool[:quota]
     return out
 
