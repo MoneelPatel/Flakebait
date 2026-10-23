@@ -22,16 +22,19 @@ Logs of long jobs: `data/logs/` (`selection.log`, `validate-*.log`).
 
 ## Done
 - Phase 0: environment checked; tooling approved (Python + uv, Java 8 target, temurin images on arm64).
-- Phase 1 code: candidate order, eligibility walker with all checks; selection running.
-- Phase 2: reproduction of both configurations for all four categories, verified on one test per category;
-  shim (`fb-ext` + oracle) with draw-rule unit tests; end-to-end relay verified on an ID test (flaky and
-  control arms: pre-edit pass, first post-edit failure with the exact NonDex failure, forced modes).
-- Phase 3 code: coverage, mutator, seeding, instance builder, validation, success checker; seeding verified
-  end to end (commons-lang, HADOOP-10394).
-- Phase 4: harness (agent image, allow-list proxy, oracle sidecar, L3 CI phase); isolation checks pass.
-- Phase 5: exposure detector. Phase 7: report builder.
+- Phase 1: candidate order; eligibility walker with all checks. First pass finished on Oct 23 (15.3 h): TD 1,
+  NIO 4, OD 0, ID 10. Two problems found in it and fixed (deviations #17, #18): the custom OD Surefire crashed on
+  whole-suite runs (all 126 OD rejected at (f)), and the caps keyed on ReproFlake's project names (4 NIO tests
+  from one junit-quickcheck module). Second pass running: cached evaluations replay; OD is evaluated anew.
+- Phase 2: reproduction of both configurations for all four categories; shim (`fb-ext` + oracle); end-to-end
+  relay checks per category (`shim_e2e.csv`).
+- Phase 3: coverage, mutator, seeding, instance builder, validation, success checker; all built pilot
+  instances valid (`instance_validation.csv`).
+- Phase 4: harness (agent image, allow-list proxy, oracle sidecar, L3 CI phase); isolation checks.
+- Phase 5/6: exposure detector; pilot with Claude Code (default model): 24 runs, $16.90, before the fixes.
+- Phase 7: report builder.
 
 ## Open
-- Selection to finish (all categories); then pilot instances, validation, per-category shim checks.
-- Pilot needs approval of the run plan and cost (model choice, budget), and `ANTHROPIC_API_KEY`.
-- The harness has not yet run a real agent (no API calls made so far).
+- OD selection (second pass) and the OD pilot tests (3 tests, 12 runs) follow automatically
+  (`flakebait.pilot_auto`, budget $50 hard: `--max-budget-usd 4` per phase, $8 reserved per run).
+- TD (1/10) and NIO (1/10) shortfalls are final: every candidate was examined; no backfill.
