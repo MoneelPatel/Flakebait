@@ -11,7 +11,7 @@ from pathlib import Path
 
 import yaml
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent  # repo root
 INDEX = ROOT / "data/reproflake/meta/test_config.csv"
 OUT = ROOT / "reports/milestone1"
 

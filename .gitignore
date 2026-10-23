@@ -5,3 +5,4 @@ __pycache__/
 *.pyc
 .env
 target/
+docker/fb-ext.jar
