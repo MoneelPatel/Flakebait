@@ -95,6 +95,9 @@ def evaluate(c: rf.Candidate, log) -> Evaluation:
 
         with _zip_lock(c.zip):
             ws = rf.workspace(c)
+        if not ws.m2.is_dir() or not any(ws.m2.iterdir()):
+            fail("a_offline_compile", "archive has no cached Maven repository (Flakym2 is empty)")
+            return _save(ev)
         host = paths.SCRATCH / c.result_container
         shutil.rmtree(host, ignore_errors=True)
         rf.copy_tree(ws.flaky, host / "flaky")
