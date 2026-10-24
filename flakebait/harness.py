@@ -241,9 +241,11 @@ class Run:
 
     def run_agent(self, phase: str, prompt: str, resume: str | None = None) -> dict:
         out_path = self.dir / f"trajectory_{phase}.jsonl"
-        used = sum(ph.get("wall_seconds", 0) for ph in self.record["phases"].values())
+        # Agent time is measured on the monotonic clock, which does not advance while the host sleeps, so a
+        # sleeping machine cannot use up the cap (a run's timestamps are wall-clock and may include such gaps).
+        used = sum(ph.get("agent_seconds", 0) for ph in self.record["phases"].values())
         budget = max(CAPS["wall_seconds_per_run"] - used, 0)
-        start = time.time()
+        start, mono = time.time(), time.monotonic()
         with open(out_path, "w") as out:
             try:
                 p = subprocess.run(["docker", "exec", "-w", "/work", self.names["agent"], *self.agent_cmd(prompt, resume)],
@@ -253,8 +255,9 @@ class Run:
                 sh(["docker", "exec", self.names["agent"], "pkill", "-f", "codex"])
                 rc, timed_out, err = -1, True, ""
         summary = summarize_trajectory(out_path)
-        summary.update(meter_summary(self.dir / "meter" / "meter_log.jsonl", start, time.time()))
-        summary.update({"rc": rc, "timed_out": timed_out, "stderr": err, "wall_seconds": round(time.time() - start, 1)})
+        summary.update(meter_summary(self.dir / "meter" / "meter_log.jsonl", len(self.record["phases"])))
+        summary.update({"rc": rc, "timed_out": timed_out, "stderr": err, "wall_seconds": round(time.time() - start, 1),
+                        "agent_seconds": round(time.monotonic() - mono, 1)})
         return summary
 
     def oracle_phase(self, phase: str, mode: str) -> None:
@@ -268,7 +271,9 @@ class Run:
         p = sh(["docker", "exec", self.names["agent"], "bash", "-lc", cmd], timeout=3600)
         log = p.stdout + p.stderr
         (self.dir / "ci_log.txt").write_text(log)
-        return p.returncode == 0, log
+        # Some builds tolerate test failures (BUILD SUCCESS with failures); CI is green only if no test failed.
+        failed = re.search(r"Tests run: \d+, Failures: [1-9]|Tests run: \d+, Failures: \d+, Errors: [1-9]", log)
+        return p.returncode == 0 and not failed, log
 
     def diff(self, name: str) -> None:
         tmp = self.dir / f".diff-{name}"
@@ -412,15 +417,21 @@ def study_spend() -> float:
     return round(total, 6)
 
 
-def meter_summary(log: Path, start: float, end: float) -> dict:
-    """Model calls, tokens and cost between start and end, from the meter's log (the authoritative count)."""
+def meter_summary(log: Path, phase_index: int) -> dict:
+    """Model calls, tokens and cost of one phase, from the meter's log (the authoritative count). Each phase has
+    its own meter, so phase i is the part of the log after the (i+1)-th "start" record. Container clocks can lag
+    the host's (they stop while it sleeps), so timestamps are not used to split phases."""
     out = {"turns": 0, "refused": 0, "cost_usd": 0.0, "input_tokens": 0, "cached_input_tokens": 0,
            "output_tokens": 0, "reasoning_tokens": 0}
     if not log.exists():
         return out
+    seg = -1
     for line in log.read_text().splitlines():
         r = json.loads(line)
-        if not (start <= r.get("t", 0) <= end + 5):
+        if r.get("event") == "start":
+            seg += 1
+            continue
+        if seg != phase_index:
             continue
         if r.get("refused"):
             out["refused"] += 1

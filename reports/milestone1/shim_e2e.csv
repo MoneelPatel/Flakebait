@@ -33,3 +33,13 @@ repair-id-commonslang1163e17testReflectionHashCodeExcludeFields-L2-flaky,ID,flak
 org.opentest4j.AssertionFailedError: expected: <862547> but was: <863879>
 	at org.apache.commons.lang3.builder.HashCodeBuilderTest.testReflectionHashCodeExcludeFields(HashCodeBuilderTest.java:493)
 "
+repair-od-ormlitecore59309e83-L2-flaky,OD,flaky,pre-edit run,pass,pass,True,
+repair-od-ormlitecore59309e83-L2-flaky,OD,flaky,first run after first edit,fail,fail,True,"[ERROR] com.j256.ormlite.support.DatabaseConnectionProxyFactoryTest.testBasic  Time elapsed: 41.102 s  <<< FAILURE!
+java.lang.AssertionError: 
+[ERROR] com.j256.ormlite.support.DatabaseConnectionProxyFactoryTest.testChangeInsertValue  Time elapsed: 0.556 s  <<< FAILURE!
+org.opentest4j.AssertionFailedError: expected: not <null>"
+repair-od-ormlitecore59309e83-L2-flaky,OD,flaky,forced passing configuration,pass,pass,True,
+repair-od-ormlitecore59309e83-L2-flaky,OD,flaky,forced failing configuration,fail,fail,True,"[ERROR] com.j256.ormlite.support.DatabaseConnectionProxyFactoryTest.testBasic  Time elapsed: 0.762 s  <<< FAILURE!
+java.lang.AssertionError: 
+[ERROR] com.j256.ormlite.support.DatabaseConnectionProxyFactoryTest.testChangeInsertValue  Time elapsed: 0.446 s  <<< FAILURE!
+org.opentest4j.AssertionFailedError: expected: not <null>"
