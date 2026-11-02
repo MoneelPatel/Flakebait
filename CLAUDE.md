@@ -39,7 +39,7 @@ These protect the validity of the study. If a change would violate one, stop and
 **Reproducibility**
 - Every random choice uses a fixed seed that is recorded: category shuffles, mutant choice, and the shim's per-run draws.
 - The selection log records **every** candidate examined and its rejection reason. Never hand-pick tests or silently drop candidates.
-- Diversity caps: at most 1 flaky test per Maven module and 2 per project, counted by **upstream repository** (`config/project_aliases.yaml`; ReproFlake's project names include issue keys and commit hashes). For TD and NIO only, at most 1 per test class instead (deviation #20, decided with the project owner).
+- Diversity caps: at most 1 flaky test per Maven module and 2 per project, counted by **upstream repository** (`config/project_aliases.yaml`; ReproFlake's project names include issue keys and commit hashes). For TD and OD, at most 1 per test class instead; NIO has no cap (deviations #20, #30, #31, decided with the project owner).
 - If TD has fewer than 10 eligible tests, use all of them and report the shortfall. **Do not backfill** from other categories.
 - Shim rules: the flaky test always passes before the agent's first edit, and the first post-edit invocation that runs it always fails. After that, the failing configuration applies with probability `p` (default 0.5). Log every draw.
 

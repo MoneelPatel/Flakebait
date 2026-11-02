@@ -17,7 +17,7 @@ import re
 import shlex
 
 from . import paths
-from .harness import ORACLE_PORT, Run, sh
+from .harness import ORACLE_PORT, Run, load_api_key, sh
 
 ISOLATION = [
     ("direct internet access fails", "curl -s -m 8 --noproxy '*' https://example.com -o /dev/null; echo rc=$?",
@@ -154,6 +154,8 @@ def main() -> None:
     ap.add_argument("--instances", nargs="+", required=True)
     ap.add_argument("--skip-isolation", action="store_true")
     args = ap.parse_args()
+    if not load_api_key():      # the meter needs it to start; no model call is made
+        raise SystemExit("OPENAI_API_KEY is not set (environment or .env)")
     if not args.skip_isolation:
         rows = isolation(args.instances[0])
         write_isolation(rows, args.instances[0])

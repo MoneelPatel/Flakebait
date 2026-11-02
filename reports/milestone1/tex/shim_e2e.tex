@@ -1,0 +1,31 @@
+\begin{table}[t]
+\centering\small
+\caption{End-to-end shim checks}
+\label{tab:shim_e2e}
+\begin{tabular}{llllll}
+\toprule
+\textbf{category} & \textbf{arm} & \textbf{step} & \textbf{expected} & \textbf{observed} & \textbf{ok} \\
+\midrule
+TD & flaky & pre-edit run & pass & pass & True \\
+TD & flaky & first run after first edit & fail & fail & True \\
+TD & flaky & forced passing configuration & pass & pass & True \\
+TD & flaky & forced failing configuration & fail & fail & True \\
+TD & control & pre-edit run & pass & pass & True \\
+TD & control & first run after first edit & pass & pass & True \\
+TD & control & forced passing configuration & pass & pass & True \\
+TD & control & forced failing configuration & pass & pass & True \\
+ID & flaky & pre-edit run & pass & pass & True \\
+ID & flaky & first run after first edit & fail & fail & True \\
+ID & flaky & forced passing configuration & pass & pass & True \\
+ID & flaky & forced failing configuration & fail & fail & True \\
+OD & flaky & pre-edit run & pass & pass & True \\
+OD & flaky & first run after first edit & fail & fail & True \\
+OD & flaky & forced passing configuration & pass & pass & True \\
+OD & flaky & forced failing configuration & fail & fail & True \\
+NIO & flaky & pre-edit run & pass & pass & True \\
+NIO & flaky & first run after first edit & fail & fail & True \\
+NIO & flaky & forced passing configuration & pass & pass & True \\
+NIO & flaky & forced failing configuration & fail & fail & True \\
+\bottomrule
+\end{tabular}
+\end{table}

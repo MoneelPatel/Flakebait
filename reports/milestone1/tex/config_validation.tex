@@ -1,0 +1,39 @@
+\begin{table}[t]
+\centering\small
+\caption{Determinism of the failing and passing configurations (20 runs each)}
+\label{tab:config_validation}
+\begin{tabular}{lllll}
+\toprule
+\textbf{category} & \textbf{test} & \textbf{failing config: failed} & \textbf{passing config: passed} & \textbf{Fixed.patch under failing: passed} \\
+\midrule
+TD & TestAuthenticationFilter\#testDoFilterAuthenticationWithInvalidToken & 20/20 & 20/20 & 20/20 \\
+NIO & ExhaustingAGivenSetButIncludingAnotherTest\#wrapperShorts & 20/20 & 20/20 & 20/20 \\
+NIO & ExhaustingAGivenSetButIncludingAnotherTest\#enums & 20/20 & 20/20 & 20/20 \\
+NIO & PropertyParameterConfigurationIsolationTest\#acrossParametersOfSameType & 20/20 & 20/20 & 20/20 \\
+NIO & ExhaustingAGivenSetButIncludingAnotherTest\#primitiveDoubles & 20/20 & 20/20 & 20/20 \\
+NIO & ExhaustingAGivenSetButIncludingAnotherTest\#ctorOnly & 20/20 & 20/20 & 20/20 \\
+NIO & SamplingButAlsoIncludingAGivenSetTest\#wrapperShorts & 20/20 & 20/20 & 20/20 \\
+NIO & ExhaustingAGivenSetButIncludingAnotherTest\#primitiveBooleans & 20/20 & 20/20 & 20/20 \\
+NIO & SamplingButAlsoIncludingAGivenSetTest\#wrapperChars & 20/20 & 20/20 & 20/20 \\
+NIO & SamplingButAlsoIncludingAGivenSetTest\#wrapperLongs & 20/20 & 20/20 & 20/20 \\
+NIO & ExhaustingAGivenSetButIncludingAnotherTest\#wrapperLongs & 20/20 & 20/20 & 20/20 \\
+OD & DatabaseConnectionProxyFactoryTest\#testBasic & 20/20 & 20/20 & 20/20 \\
+OD & TransactionManagerTest\#testSpringWiredRollBack & 20/20 & 20/20 & 20/20 \\
+OD & ServiceBasedNamingStoreTestCase\#testListBindings & 20/20 & 20/20 & 20/20 \\
+OD & SchemaUtilsTest\#testCreateSchema & 20/20 & 20/20 & 20/20 \\
+OD & BaseConnectionSourceTest\#testClearNone & 20/20 & 20/20 & 20/20 \\
+OD & StatementExecutorTest\#testCallBatchTasksNestedInTransaction & 20/20 & 20/20 & 20/20 \\
+OD & ZookeeperRegistryCenterModifyTest\#assertPersistEphemeralSequential & 20/20 & 20/20 & 20/20 \\
+ID & HashCodeBuilderTest\#testReflectionHashCodeExcludeFields & 20/20 & 20/20 & 20/20 \\
+ID & KeyValueSchemaInfoTest\#testKeyValueSchemaInfoToString & 20/20 & 20/20 & 20/20 \\
+ID & TestMapRecord\#testAliasConflictingAliasValues & 20/20 & 20/20 & 20/20 \\
+ID & EnumTest\#testSingleEnum & 20/20 & 20/20 & 20/20 \\
+ID & DropColumnGeneratorTest\#testDropMultipleColumnsMySQL & 20/20 & 20/20 & 20/20 \\
+ID & MethodCallProxyTest\#testNonGenericParameter & 20/20 & 20/20 & 20/20 \\
+ID & ObjectSchemaTest\#toStringNoExplicitType & 20/20 & 20/20 & 20/20 \\
+ID & RestServerCodecFilterTest\#should\_convert\_exception\_to\_response\_when\_decode\_request\_failed & 20/20 & 20/20 & 20/20 \\
+ID & JSONPointerTest\#queryByEmptyKeySubObject & 20/20 & 20/20 & 20/20 \\
+ID & ReflectorTest\#shouldSettersWithUnrelatedArgTypesThrowException & 20/20 & 20/20 & 20/20 \\
+\bottomrule
+\end{tabular}
+\end{table}

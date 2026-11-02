@@ -1,0 +1,39 @@
+\begin{table}[t]
+\centering\small
+\caption{Selected flaky tests}
+\label{tab:selected_tests}
+\begin{tabular}{lll}
+\toprule
+\textbf{category} & \textbf{project} & \textbf{test} \\
+\midrule
+TD & HADOOP-10394 & TestAuthenticationFilter\#testDoFilterAuthenticationWithInvalidToken \\
+NIO & quickcheckc1c & ExhaustingAGivenSetButIncludingAnotherTest\#wrapperShorts \\
+NIO & quickcheck485 & ExhaustingAGivenSetButIncludingAnotherTest\#enums \\
+NIO & quickcheck485 & PropertyParameterConfigurationIsolationTest\#acrossParametersOfSameType \\
+NIO & quickcheckc1c & ExhaustingAGivenSetButIncludingAnotherTest\#primitiveDoubles \\
+NIO & quickcheck485 & ExhaustingAGivenSetButIncludingAnotherTest\#ctorOnly \\
+NIO & quickcheckc1c & SamplingButAlsoIncludingAGivenSetTest\#wrapperShorts \\
+NIO & quickcheck485 & ExhaustingAGivenSetButIncludingAnotherTest\#primitiveBooleans \\
+NIO & quickcheckce2 & SamplingButAlsoIncludingAGivenSetTest\#wrapperChars \\
+NIO & quickcheckc1c & SamplingButAlsoIncludingAGivenSetTest\#wrapperLongs \\
+NIO & quickcheckc1c & ExhaustingAGivenSetButIncludingAnotherTest\#wrapperLongs \\
+OD & ormlitecore59309e5 & DatabaseConnectionProxyFactoryTest\#testBasic \\
+OD & ormlitecore59309e5 & TransactionManagerTest\#testSpringWiredRollBack \\
+OD & wildflynaming3a83b7b & ServiceBasedNamingStoreTestCase\#testListBindings \\
+OD & ormlitecore59309e5 & SchemaUtilsTest\#testCreateSchema \\
+OD & ormlitecore59309e5 & BaseConnectionSourceTest\#testClearNone \\
+OD & ormlitecore59309e5 & StatementExecutorTest\#testCallBatchTasksNestedInTransaction \\
+OD & shardingsphereelasticjobelasticjoblitecore90e3a7f & ZookeeperRegistryCenterModifyTest\#assertPersistEphemeralSequential \\
+ID & commons-lang & HashCodeBuilderTest\#testReflectionHashCodeExcludeFields \\
+ID & pulsar & KeyValueSchemaInfoTest\#testKeyValueSchemaInfoToString \\
+ID & nifi & TestMapRecord\#testAliasConflictingAliasValues \\
+ID & typescript-generator & EnumTest\#testSingleEnum \\
+ID & liquibase & DropColumnGeneratorTest\#testDropMultipleColumnsMySQL \\
+ID & byte-buddy & MethodCallProxyTest\#testNonGenericParameter \\
+ID & json-schema & ObjectSchemaTest\#toStringNoExplicitType \\
+ID & SCB-2731 & RestServerCodecFilterTest\#should\_convert\_exception\_to\_response\_when\_decode\_request\_failed \\
+ID & JSON-java & JSONPointerTest\#queryByEmptyKeySubObject \\
+ID & mybatis-3 & ReflectorTest\#shouldSettersWithUnrelatedArgTypesThrowException \\
+\bottomrule
+\end{tabular}
+\end{table}

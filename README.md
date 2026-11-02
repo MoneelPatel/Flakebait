@@ -39,8 +39,8 @@ reason is logged (`selection_log.csv`). Eligibility, checked in our containers: 
 (b) the failing configuration fails 20/20 and the passing configuration passes 20/20; (c) with `Fixed.patch` the
 test passes 20/20 under the failing configuration; (d) a fault can be seeded; (e) the flaky test's class has
 another deterministic test; (f) the module's suite runs in under 10 minutes. Diversity caps: at most one flaky test
-per module and two per upstream project for ID and OD; for TD and NIO, which cannot reach 10 under those caps, at
-most one per test class (deviation #20). Shortfalls are reported, never backfilled.
+per module and two per upstream project for ID; for TD and OD, which cannot reach 10 under those caps, at
+most one per test class (deviations #20, #30); NIO, mostly a few junit-quickcheck classes, has no cap (#31). Shortfalls are reported, never backfilled.
 
 ### Task: repair (40 instances)
 

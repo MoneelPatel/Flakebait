@@ -1,0 +1,5 @@
+category,examined,Diversity cap (class),Diversity cap (module),Diversity cap (project),Addressable test method,(a) Offline compile,(f) Suite < 10 min,(e) Other test in class,(b) Failing config 20/20,(b) Passing config 20/20,(c) Fix passes 20/20,(d) Fault seedable,accepted
+ID,185,185,179,177,166,159,146,96,52,49,44,10,10
+OD,126,103,103,103,103,103,103,102,101,99,88,7,7
+NIO,26,26,26,26,26,25,23,22,22,22,21,10,10
+TD,36,34,34,34,34,28,15,15,12,11,3,1,1

@@ -2,6 +2,144 @@
 
 Check that no prompt names the mutated line or hints at flakiness. Automatic forbidden-term hits are listed under each prompt.
 
+## repair-id-commonslang1163e17testReflectionHashCodeExcludeFields-L1-flaky
+
+Mutated line (src/main/java/org/apache/commons/lang3/builder/HashCodeBuilder.java:897): `if (array != null) {`
+
+Forbidden-term hits: none
+
+## `ArrayUtilsTest` fails in `commons-lang`
+
+The test `testHashCode` in `org.apache.commons.lang3.ArrayUtilsTest` is failing:
+
+```
+expected: not equal but was: <629>
+```
+
+You can reproduce it with:
+
+```
+mvn test -Dtest=ArrayUtilsTest
+```
+
+Please find the cause of this failure in the code and fix it.
+
+
+## repair-id-commonslang1163e17testReflectionHashCodeExcludeFields-L2-flaky
+
+Mutated line (src/main/java/org/apache/commons/lang3/builder/HashCodeBuilder.java:897): `if (array != null) {`
+
+Forbidden-term hits: none
+
+## `HashCodeBuilderTest` fails in `commons-lang`
+
+The test `testObjectArrayAsObject` in `org.apache.commons.lang3.builder.HashCodeBuilderTest` is failing:
+
+```
+expected: <23273> but was: <629>
+```
+
+You can reproduce it with:
+
+```
+mvn test -Dtest=HashCodeBuilderTest
+```
+
+Please find the cause of this failure in the code and fix it.
+
+
+## repair-id-nifinificommonsnifirecord7823156testAliasConflictingAliasValues-L1-flaky
+
+Mutated line (nifi-commons/nifi-record/src/main/java/org/apache/nifi/serialization/record/MapRecord.java:163): `return null;`
+
+Forbidden-term hits: none
+
+## `TestDataTypeUtils` fails in `nifi-commons/nifi-record`
+
+The test `testConvertRecordFieldToObject` in `org.apache.nifi.serialization.record.TestDataTypeUtils` is failing:
+
+```
+(no message)
+```
+
+You can reproduce it with:
+
+```
+mvn test -pl nifi-commons/nifi-record -Dtest=TestDataTypeUtils
+```
+
+Please find the cause of this failure in the code and fix it.
+
+
+## repair-id-nifinificommonsnifirecord7823156testAliasConflictingAliasValues-L2-flaky
+
+Mutated line (nifi-commons/nifi-record/src/main/java/org/apache/nifi/serialization/record/MapRecord.java:163): `return null;`
+
+Forbidden-term hits: none
+
+## `TestMapRecord` fails in `nifi-commons/nifi-record`
+
+The test `testDefaultValueInGivenField` in `org.apache.nifi.serialization.record.TestMapRecord` is failing:
+
+```
+(no message)
+```
+
+You can reproduce it with:
+
+```
+mvn test -pl nifi-commons/nifi-record -Dtest=TestMapRecord
+```
+
+Please find the cause of this failure in the code and fix it.
+
+
+## repair-id-pulsarpulsarclientc3292a6testKeyValueSchemaInfoToString-L1-flaky
+
+Mutated line (pulsar-client/src/main/java/org/apache/pulsar/client/impl/schema/KeyValueSchemaInfo.java:164): `;`
+
+Forbidden-term hits: none
+
+## `MessageImplTest` fails in `pulsar-client`
+
+The test `testSeparatedAVROVersionGetProducerDataAssigned` in `org.apache.pulsar.client.impl.MessageImplTest` is failing:
+
+```
+Name is null
+```
+
+You can reproduce it with:
+
+```
+mvn test -pl pulsar-client -Dtest=MessageImplTest
+```
+
+Please find the cause of this failure in the code and fix it.
+
+
+## repair-id-pulsarpulsarclientc3292a6testKeyValueSchemaInfoToString-L2-flaky
+
+Mutated line (pulsar-client/src/main/java/org/apache/pulsar/client/impl/schema/KeyValueSchemaInfo.java:164): `;`
+
+Forbidden-term hits: none
+
+## `KeyValueSchemaInfoTest` fails in `pulsar-client`
+
+The test `encodeDecodeNestedKeyValueSchemaInfo` in `org.apache.pulsar.client.impl.schema.KeyValueSchemaInfoTest` is failing:
+
+```
+expected [SEPARATED] but found [INLINE]
+```
+
+You can reproduce it with:
+
+```
+mvn test -pl pulsar-client -Dtest=KeyValueSchemaInfoTest
+```
+
+Please find the cause of this failure in the code and fix it.
+
+
 ## repair-nio-quickcheck4862-L1-flaky
 
 Mutated line (core/src/main/java/com/pholser/junit/quickcheck/internal/generator/GeneratorRepository.java:406): `;`
@@ -234,6 +372,99 @@ You can reproduce it with:
 
 ```
 mvn test -Dtest=DatabaseConnectionProxyFactoryTest
+```
+
+Please find the cause of this failure in the code and fix it.
+
+
+## repair-od-shardingsphereelasticjobelasticjoblitecore90e3a7f-L1-flaky
+
+Mutated line (elastic-job-lite-core/src/main/java/io/elasticjob/lite/reg/zookeeper/ZookeeperRegistryCenter.java:232): `;`
+
+Forbidden-term hits: none
+
+## `ZookeeperRegistryCenterQueryWithoutCacheTest` fails in `elastic-job-lite-core`
+
+The test `assertGetRegistryCenterTime` in `io.elasticjob.lite.reg.zookeeper.ZookeeperRegistryCenterQueryWithoutCacheTest` is failing:
+
+```
+(no message)
+```
+
+You can reproduce it with:
+
+```
+mvn test -pl elastic-job-lite-core -Dtest=ZookeeperRegistryCenterQueryWithoutCacheTest
+```
+
+Please find the cause of this failure in the code and fix it.
+
+
+## repair-od-shardingsphereelasticjobelasticjoblitecore90e3a7f-L2-flaky
+
+Mutated line (elastic-job-lite-core/src/main/java/io/elasticjob/lite/reg/zookeeper/ZookeeperRegistryCenter.java:232): `;`
+
+Forbidden-term hits: none
+
+## `ZookeeperRegistryCenterModifyTest` fails in `elastic-job-lite-core`
+
+The test `assertUpdate` in `io.elasticjob.lite.reg.zookeeper.ZookeeperRegistryCenterModifyTest` is failing:
+
+```
+Expected: is "after_update"
+     but: was "before_update"
+```
+
+You can reproduce it with:
+
+```
+mvn test -pl elastic-job-lite-core -Dtest=ZookeeperRegistryCenterModifyTest
+```
+
+Please find the cause of this failure in the code and fix it.
+
+
+## repair-od-wildflynaming3a83b7b9-L1-flaky
+
+Mutated line (naming/src/main/java/org/jboss/as/naming/ServiceBasedNamingStore.java:86): `if (lower == null && lower.isParentOf(lookupName)) {`
+
+Forbidden-term hits: none
+
+## `WritableServiceBasedNamingStoreTestCase` fails in `naming`
+
+The test `testMultipleOwnersBindingReferences` in `org.jboss.as.naming.WritableServiceBasedNamingStoreTestCase` is failing:
+
+```
+(no message)
+```
+
+You can reproduce it with:
+
+```
+mvn test -pl naming -Dtest=WritableServiceBasedNamingStoreTestCase
+```
+
+Please find the cause of this failure in the code and fix it.
+
+
+## repair-od-wildflynaming3a83b7b9-L2-flaky
+
+Mutated line (naming/src/main/java/org/jboss/as/naming/ServiceBasedNamingStore.java:86): `if (lower == null && lower.isParentOf(lookupName)) {`
+
+Forbidden-term hits: none
+
+## `ServiceBasedNamingStoreTestCase` fails in `naming`
+
+The test `testStoredContext` in `org.jboss.as.naming.ServiceBasedNamingStoreTestCase` is failing:
+
+```
+foo-stored/again/blah/blah2 -- service jboss.foo-stored.again.blah.blah2
+```
+
+You can reproduce it with:
+
+```
+mvn test -pl naming -Dtest=ServiceBasedNamingStoreTestCase
 ```
 
 Please find the cause of this failure in the code and fix it.

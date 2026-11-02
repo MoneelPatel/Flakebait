@@ -1,0 +1,171 @@
+\begin{table}[t]
+\centering\small
+\caption{Fault seeding funnel per flaky test}
+\label{tab:mutant_funnel}
+\begin{tabular}{llllllllllll}
+\toprule
+\textbf{category} & \textbf{test} & \textbf{target class} & \textbf{candidate methods} & \textbf{mutants generated} & \textbf{examined} & \textbf{compiled} & \textbf{killed by >=2} & \textbf{killers in L1+L2 classes} & \textbf{killers fail alone} & \textbf{flaky test unchanged} & \textbf{20/20 recheck} \\
+\midrule
+TD & TestAuthenticationFilter\#testDoFilterAuthenticationWithInvalidToken & AuthenticationFilter & 10 & 57 & 4 & 4 & 4 & 3 & 3 & 1 & 1 \\
+TD & EmptyPropertiesTest\#testSave & PropertiesFactory & 1 & 1 & 1 & 1 & 1 & 0 & 0 & 0 & 0 \\
+TD & TestTimelineClientV2Impl\#testSyncCall & TimelineV2ClientImpl & 6 & 9 & 9 & 9 & 5 & 0 & 0 & 0 & 0 \\
+NIO & ExhaustingAGivenSetButIncludingAnotherTest\#wrapperShorts & ParameterTypeContext & 15 & 38 & 9 & 9 & 8 & 5 & 5 & 1 & 1 \\
+NIO & ExhaustingAGivenSetTest\#booleansUnmarked & PropertyStatement & 8 & 9 & 9 & 9 & 5 & 4 & 4 & 0 & 0 \\
+NIO & ExhaustingAGivenSetTest\#enumsUnmarked & PropertyStatement & 8 & 9 & 9 & 9 & 5 & 4 & 4 & 0 & 0 \\
+NIO & EnumPropertyParameterTypesTest\#whenConstrained & GeneratorRepository & 11 & 25 & 25 & 25 & 20 & 3 & 3 & 0 & 0 \\
+NIO & ExhaustingAGivenSetButIncludingAnotherTest\#enums & GeneratorRepository & 11 & 25 & 23 & 23 & 18 & 3 & 3 & 1 & 1 \\
+NIO & ExhaustingAGivenSetTest\#wrapperBytes & PropertyStatement & 8 & 9 & 9 & 9 & 5 & 4 & 4 & 0 & 0 \\
+NIO & ExhaustingAGivenSetButIncludingAnotherTest\#manyParameters & ParameterTypeContext & 15 & 38 & 38 & 38 & 28 & 18 & 18 & 0 & 0 \\
+NIO & PropertyParameterConfigurationIsolationTest\#acrossParametersOfSameType & GeneratorRepository & 19 & 53 & 22 & 22 & 20 & 12 & 12 & 1 & 1 \\
+NIO & ExhaustingAGivenSetButIncludingAnotherTest\#primitiveDoubles & ParameterTypeContext & 15 & 38 & 27 & 27 & 21 & 12 & 12 & 1 & 1 \\
+NIO & ExhaustingAGivenSetTest\#primitiveFloats & PropertyStatement & 8 & 9 & 9 & 9 & 5 & 4 & 4 & 0 & 0 \\
+NIO & SamplingOnlyFromAGivenSetTest\#manyParameters & PropertyStatement & 8 & 9 & 9 & 9 & 5 & 4 & 4 & 0 & 0 \\
+NIO & ExhaustingAGivenSetButIncludingAnotherTest\#ctorOnly & ParameterTypeContext & 15 & 38 & 28 & 28 & 21 & 14 & 14 & 1 & 1 \\
+NIO & SamplingButAlsoIncludingAGivenSetTest\#wrapperShorts & ParameterTypeContext & 15 & 38 & 15 & 15 & 11 & 7 & 7 & 1 & 1 \\
+NIO & ExhaustingAGivenSetButIncludingAnotherTest\#primitiveBooleans & ParameterTypeContext & 15 & 38 & 10 & 10 & 7 & 5 & 5 & 1 & 1 \\
+NIO & ExhaustingAGivenSetTest\#manyParameters & PropertyStatement & 8 & 9 & 9 & 9 & 5 & 4 & 4 & 0 & 0 \\
+NIO & SamplingButAlsoIncludingAGivenSetTest\#wrapperChars & ParameterTypeContext & 15 & 38 & 14 & 14 & 13 & 8 & 8 & 1 & 1 \\
+NIO & SamplingOnlyFromAGivenSetTest\#enums & PropertyStatement & 8 & 9 & 9 & 9 & 5 & 4 & 4 & 0 & 0 \\
+NIO & ExhaustingAGivenSetTest\#primitiveBytes & PropertyStatement & 8 & 9 & 9 & 9 & 5 & 4 & 4 & 0 & 0 \\
+NIO & ExhaustingAGivenSetTest\#favorValueOf & PropertyStatement & 8 & 9 & 9 & 9 & 5 & 4 & 4 & 0 & 0 \\
+NIO & SamplingButAlsoIncludingAGivenSetTest\#wrapperLongs & ParameterTypeContext & 15 & 38 & 26 & 26 & 17 & 11 & 11 & 1 & 1 \\
+NIO & ExhaustingAGivenSetButIncludingAnotherTest\#wrapperLongs & ParameterTypeContext & 15 & 38 & 11 & 11 & 8 & 7 & 7 & 1 & 1 \\
+OD & DirectoryManagerFactoryTest\#createDirectoryManagerIoException & DirectoryManagerFactory & 1 & 2 & 2 & 1 & 1 & 0 & 0 & 0 & 0 \\
+OD & DatabaseConnectionProxyFactoryTest\#testBasic & FieldType & 33 & 124 & 59 & 59 & 48 & 25 & 24 & 1 & 1 \\
+OD & FailoverServiceTest\#assertGetLocalFailoverItemsIfShutdown & FailoverService & 1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testQueryForMatchingArgsThrow & RuntimeExceptionDao & 2 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testCountOfThrow & RuntimeExceptionDao & 3 & 5 & 5 & 3 & 0 & 0 & 0 & 0 & 0 \\
+OD & NamingEventCoordinatorTestCase\#testFireObjectEvent & NamingEventCoordinator & 3 & 21 & 21 & 21 & 16 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testIdExistsThrows & RuntimeExceptionDao & 2 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testRollbackThrows & RuntimeExceptionDao & 2 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 \\
+OD & TransactionManagerTest\#testSpringWiredRollBack & TransactionManager & 5 & 40 & 5 & 5 & 3 & 1 & 1 & 1 & 1 \\
+OD & RuntimeExceptionDaoTest\#testQueryForEqThrow & RuntimeExceptionDao & 2 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testSetAutoCommitThrows & RuntimeExceptionDao & 2 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testQueryForFirstPreparedThrow & RuntimeExceptionDao & 2 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testQueryForSameIdThrow & RuntimeExceptionDao & 2 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 \\
+OD & SchemaUtilsTest\#testCreateSchemaName & SchemaUtils & 8 & 46 & 46 & 46 & 21 & 11 & 11 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testGetEmptyForeignCollectionThrow & RuntimeExceptionDao & 2 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testCreateCollectionThrow & RuntimeExceptionDao & 3 & 5 & 5 & 3 & 0 & 0 & 0 & 0 & 0 \\
+OD & JobRegistryTest\#assertGetCurrentShardingTotalCountIfNull & JobRegistry & 2 & 6 & 6 & 6 & 5 & 5 & 5 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testCountOfPreparedThrow & RuntimeExceptionDao & 3 & 5 & 5 & 3 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testCommitThrows & RuntimeExceptionDao & 2 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testQueryThrow & RuntimeExceptionDao & 2 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testQueryForFieldsValuesArgsThrow & RuntimeExceptionDao & 2 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 \\
+OD & WritableServiceBasedNamingStoreTestCase\#testBind & WritableServiceBasedNamingStore & 5 & 16 & 16 & 16 & 9 & 0 & 0 & 0 & 0 \\
+OD & BaseDatabaseTypeTest\#testDriverNotFound & BaseDatabaseType & 3 & 5 & 5 & 4 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testIsTableExistsThrow & RuntimeExceptionDao & 2 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 \\
+OD & NamingEventCoordinatorTestCase\#testFireMultiLevelEvent & NamingEventCoordinator & 3 & 21 & 21 & 21 & 17 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testDeleteThrow & RuntimeExceptionDao & 3 & 7 & 7 & 4 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testEndThreadConnectionThrows & RuntimeExceptionDao & 2 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testCreateOrUpdateThrow & RuntimeExceptionDao & 2 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testQueryRawDateTypesThrow & RuntimeExceptionDao & 3 & 31 & 31 & 16 & 0 & 0 & 0 & 0 & 0 \\
+OD & NamingSubsystemTestCase\#testSubsystem & NamingSubsystem14Parser & 9 & 71 & 71 & 71 & 52 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testDeleteIdsThrow & RuntimeExceptionDao & 2 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 \\
+OD & ShellSetInstanceTest\#testSetInstance\_HdfsZooInstance\_InstanceGiven &  & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+OD & PortTelnetHandlerTest\#testListDetail & PortTelnetHandler & 1 & 25 & 25 & 25 & 7 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testIteratorThrow & RuntimeExceptionDao & 3 & 7 & 7 & 5 & 0 & 0 & 0 & 0 & 0 \\
+OD & JdkProxyFactoryTest\#testGetInvoker & JdkProxyFactory & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+OD & ChangeTelnetHandlerTest\#testChangeServiceNotExport & ChangeTelnetHandler & 1 & 12 & 12 & 12 & 6 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testQueryRawValueThrow & RuntimeExceptionDao & 2 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 \\
+OD & ServiceBasedNamingStoreTestCase\#testListBindings & ServiceBasedNamingStore & 4 & 17 & 4 & 4 & 3 & 3 & 3 & 1 & 1 \\
+OD & RuntimeExceptionDaoTest\#testUpdateThrow & RuntimeExceptionDao & 3 & 5 & 5 & 3 & 0 & 0 & 0 & 0 & 0 \\
+OD & NamingEventCoordinatorTestCase\#testFireSubTreeEvent & NamingEventCoordinator & 3 & 21 & 21 & 21 & 17 & 0 & 0 & 0 & 0 \\
+OD & ShellSetInstanceTest\#testSetInstance\_HdfsZooInstance\_Explicit &  & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testRefreshThrow & RuntimeExceptionDao & 2 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testCreateThrow & RuntimeExceptionDao & 3 & 5 & 5 & 3 & 0 & 0 & 0 & 0 & 0 \\
+OD & SchemaUtilsTest\#testCreateIfNotExists & SchemaUtils & 7 & 43 & 43 & 43 & 20 & 11 & 11 & 0 & 0 \\
+OD & DirectoryManagerFactoryTest\#createDefaultDirectoryManagerPath & DirectoryManagerFactory & 1 & 2 & 2 & 1 & 1 & 0 & 0 & 0 & 0 \\
+OD & SchemaUtilsTest\#testCreateSchema & SchemaUtils & 8 & 46 & 24 & 24 & 10 & 4 & 4 & 1 & 1 \\
+OD & RuntimeExceptionDaoTest\#testCallBatchTasksThrow & RuntimeExceptionDao & 2 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 \\
+OD & QueryBuilderWithSchemaTest\#testQueryRawColumnsNotQuery & TableUtils & 10 & 117 & 117 & 117 & 61 & 0 & 0 & 0 & 0 \\
+OD & SchemaUtilsTest\#testDropSchemaThrow & SchemaUtils & 4 & 25 & 17 & 17 & 4 & 2 & 2 & 1 & 1 \\
+OD & RuntimeExceptionDaoTest\#testDeleteCollectionThrow & RuntimeExceptionDao & 3 & 7 & 7 & 4 & 0 & 0 & 0 & 0 & 0 \\
+OD & AbstractAISMessageListenerTest\#testSequenceListenerWithIncorrectOrder & AbstractAISMessageListener & 2 & 3 & 3 & 3 & 2 & 0 & 0 & 0 & 0 \\
+OD & BaseConnectionSourceTest\#testClearNone & BaseConnectionSource & 2 & 10 & 4 & 4 & 2 & 1 & 1 & 1 & 1 \\
+OD & StatementExecutorTest\#testCallBatchTasksNestedInTransaction & StatementExecutor & 6 & 29 & 12 & 12 & 4 & 2 & 2 & 1 & 1 \\
+OD & RuntimeExceptionDaoTest\#testSetObjectCacheCacheThrow & RuntimeExceptionDao & 3 & 5 & 5 & 3 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testQueryRawDatatypesThrows & RuntimeExceptionDao & 3 & 31 & 31 & 16 & 0 & 0 & 0 & 0 & 0 \\
+OD & AISMessageFactoryTest\#testCreateWithTwo & AISMessageFactory & 2 & 3 & 3 & 3 & 3 & 3 & 3 & 0 & 0 \\
+OD & ShellSetInstanceTest\#testSetInstance\_HdfsZooInstance\_Implicit &  & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testQueryForAllThrow & RuntimeExceptionDao & 3 & 3 & 3 & 2 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testIsAutoCommitThrows & RuntimeExceptionDao & 2 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testExecuteRawNoArgsThrow & RuntimeExceptionDao & 3 & 7 & 7 & 4 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testExtractIdThrow & RuntimeExceptionDao & 2 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 \\
+OD & ShellSetInstanceTest\#testSetInstance\_HdfsZooInstance\_HostsGiven &  & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testUpdateRawThrow & RuntimeExceptionDao & 2 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testGetSelectStarRowMapperThrow & RuntimeExceptionDao & 2 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 \\
+OD & PortTelnetHandlerTest\#testListAllPort & PortTelnetHandler & 1 & 25 & 25 & 25 & 7 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testCloseLastIteratorThrow & RuntimeExceptionDao & 3 & 3 & 3 & 3 & 1 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testDeletePreparedThrow & RuntimeExceptionDao & 3 & 7 & 7 & 4 & 0 & 0 & 0 & 0 & 0 \\
+OD & ShutdownListenerManagerTest\#assertIsShutdownAlready & ShutdownListenerManager & 1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testQueryRawThrow & RuntimeExceptionDao & 3 & 31 & 31 & 16 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testMapSelectStarRowThrow & RuntimeExceptionDao & 2 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testQueryRawRowMapperThrow & RuntimeExceptionDao & 3 & 31 & 31 & 16 & 0 & 0 & 0 & 0 & 0 \\
+OD & GroupTest\#getgroups &  & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testCreateIfNotExistsThrow & RuntimeExceptionDao & 2 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testObjectsEqualThrow & RuntimeExceptionDao & 2 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testSetObjectCacheThrow & RuntimeExceptionDao & 3 & 5 & 5 & 3 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testQueryForIdThrow & RuntimeExceptionDao & 3 & 3 & 3 & 2 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testIteratorQueryFlags & RuntimeExceptionDao & 3 & 7 & 7 & 5 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testCreateObjectInstanceThrows & RuntimeExceptionDao & 2 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testQueryRawMapperThrows & RuntimeExceptionDao & 3 & 31 & 31 & 16 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testAssignEmptyForeignCollectionThrow & RuntimeExceptionDao & 2 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testCloseLastIteratorThrows & RuntimeExceptionDao & 3 & 3 & 3 & 3 & 1 & 0 & 0 & 0 & 0 \\
+OD & JavassistProxyFactoryTest\#testGetInvoker & JavassistProxyFactory & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testStartThreadConnectionThrows & RuntimeExceptionDao & 2 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testQueryForMatchingThrow & RuntimeExceptionDao & 2 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testUpdatePreparedThrow & RuntimeExceptionDao & 3 & 5 & 5 & 3 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testExecuteRawThrow & RuntimeExceptionDao & 3 & 7 & 7 & 4 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testQueryForFieldsValuesThrow & RuntimeExceptionDao & 2 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 \\
+OD & RuntimeExceptionDaoTest\#testUpdateIdThrow & RuntimeExceptionDao & 2 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 0 \\
+OD & ZookeeperRegistryCenterModifyTest\#assertPersistEphemeralSequential & ZookeeperRegistryCenter & 7 & 29 & 13 & 12 & 1 & 1 & 1 & 1 & 1 \\
+ID & HashCodeBuilderTest\#testReflectionHashCodeExcludeFields & HashCodeBuilder & 9 & 114 & 6 & 6 & 5 & 2 & 2 & 1 & 1 \\
+ID & QueryTest\#testToQueryUrl & Query & 0 & 0 & 0 & 0 & 0 & 0 &  & 0 & 0 \\
+ID & KeyValueSchemaInfoTest\#testKeyValueSchemaInfoToString & KeyValueSchemaInfo & 5 & 16 & 2 & 2 & 2 & 2 & 2 & 1 & 1 \\
+ID & EnumConstantsExtensionTest\#basicTest & EnumConstantsExtension & 2 & 6 & 6 & 5 & 0 & 0 &  & 0 & 0 \\
+ID & ImportHooksTest\#updateUserProfile & Hooks & 1 & 1 & 1 & 1 & 1 & 1 &  & 0 & 0 \\
+ID & RequestHeadersTest\#shouldPrintHeaders & RequestHeaders & 3 & 13 & 13 & 13 & 3 & 1 &  & 0 & 0 \\
+ID & CastleUserDeviceContextTest\#fullBuilderJson & CastleUserDeviceContext & 7 & 5 & 5 & 5 & 0 & 0 &  & 0 & 0 \\
+ID & ImportHooksTest\#linkUserTest & Hooks & 1 & 1 & 1 & 1 & 1 & 1 &  & 0 & 0 \\
+ID & WebClientImplTest\#whenUnprotected\_sendPutToServer & WebClientImpl & 4 & 4 & 4 & 4 & 3 & 0 &  & 0 & 0 \\
+ID & TestMapRecord\#testAliasConflictingAliasValues & MapRecord & 3 & 16 & 1 & 1 & 1 & 1 & 1 & 1 & 1 \\
+ID & TestFetchHBaseRow\#testFetchToContentWithStringValues & FetchHBaseRow & 6 & 26 & 26 & 26 & 12 & 0 &  & 0 & 0 \\
+ID & IndexLabelTest\#testIndexLabel & IndexLabel & 2 & 2 & 2 & 2 & 2 & 0 &  & 0 & 0 \\
+ID & ExplicitPropertyParameterGeneratorsChosenWithEqualProbabilityTest\#producesExpectedRandomValues & GeneratorRepository & 13 & 39 & 39 & 39 & 32 & 0 &  & 0 & 0 \\
+ID & EnumTest\#testSingleEnum & Settings & 18 & 127 & 1 & 1 & 1 & 1 & 1 & 1 & 1 \\
+ID & TokenHooksTest\#tokenExpiration & Hooks & 1 & 1 & 1 & 1 & 1 & 1 &  & 0 & 0 \\
+ID & DropColumnGeneratorTest\#testDropMultipleColumnsMySQL & DropColumnGenerator & 3 & 10 & 6 & 6 & 1 & 1 & 1 & 1 & 1 \\
+ID & SetOfSuperFloatPropertyParameterTest\#verifyInteractionWithRandomness &  & 0 & 0 & 0 & 0 & 0 & 0 &  & 0 & 0 \\
+ID & PluginManagerTest\#testGetPluginsToLoad & PluginManager & 1 & 1 & 1 & 0 & 0 & 0 &  & 0 & 0 \\
+ID & TestFetchHBaseRow\#testFetchToAttributesWithStringValues & FetchHBaseRow & 6 & 26 & 26 & 26 & 12 & 0 &  & 0 & 0 \\
+ID & DefaultSegmentedClientTest\#verifyThatSegmentsAreRetrievedOnlyOnce & DefaultSegmentedClient & 3 & 6 & 6 & 2 & 1 & 1 &  & 0 & 0 \\
+ID & MethodCallProxyTest\#testNonGenericParameter & TypeCache & 3 & 14 & 3 & 3 & 1 & 1 & 1 & 1 & 1 \\
+ID & InheritingMetadataContainerTest\#testRemove1 & InheritingMetadataContainer & 15 & 48 & 48 & 48 & 25 & 0 &  & 0 & 0 \\
+ID & PredicatedSetTest\#testCollectionToArray2 & PredicatedSet & 4 & 3 & 3 & 3 & 3 & 3 &  & 0 & 0 \\
+ID & Issue3082\#test\_for\_issue &  & 0 & 0 & 0 & 0 & 0 & 0 &  & 0 & 0 \\
+ID & InheritingMetadataContainerTest\#testPut2 & InheritingMetadataContainer & 5 & 17 & 17 & 17 & 10 & 0 &  & 0 & 0 \\
+ID & ObjectSchemaTest\#toStringNoExplicitType & ObjectSchema & 15 & 18 & 9 & 9 & 9 & 9 & 9 & 1 & 1 \\
+ID & SamlHooksTest\#complexAddRemove & Hooks & 1 & 1 & 1 & 1 & 1 & 1 &  & 0 & 0 \\
+ID & TestStandardHttpServletRequestEx\#parameterMap\_merge & StandardHttpServletRequestEx & 5 & 10 & 10 & 10 & 9 & 0 &  & 0 & 0 \\
+ID & DayPairsHelperTest\#testGenerateNewDayPairsSoloRequired & DayPairsHelper & 27 & 138 & 138 & 138 & 73 & 0 &  & 0 & 0 \\
+ID & ConjoinStepTest\#testReturnTypes & ConjoinStep & 1 & 1 & 1 & 1 & 1 & 1 &  & 0 & 0 \\
+ID & JsonMapperTest\#toJson & JsonMapper & 1 & 4 & 4 & 2 & 0 & 0 &  & 0 & 0 \\
+ID & ExpressionTest\#testValueLiteralString & ValueDataTypeConverter & 2 & 5 & 5 & 5 & 3 & 0 &  & 0 & 0 \\
+ID & SetOfSuperFloatPropertyParameterTest\#producesExpectedRandomValues & CollectionGenerator & 6 & 10 & 10 & 9 & 9 & 0 &  & 0 & 0 \\
+ID & RestServerCodecFilterTest\#should\_convert\_exception\_to\_response\_when\_decode\_request\_failed & RestServerCodecFilter & 6 & 17 & 16 & 16 & 7 & 2 & 2 & 1 & 1 \\
+ID & TestClassFinder\#testClassFinderDefaultsToOwnPackage & JVM & 8 & 58 & 58 & 47 & 0 & 0 &  & 0 & 0 \\
+ID & MaxMessageSizeDeploymentTest\#serverMaxMessageSizeTooLargeTest &  & 0 & 0 & 0 & 0 & 0 & 0 &  & 0 & 0 \\
+ID & UserRegHooksTest\#deny & Hooks & 1 & 1 & 1 & 1 & 1 & 1 &  & 0 & 0 \\
+ID & CastleUserDevicesTest\#fullBuilderJson & CastleUserDevices & 1 & 0 & 0 & 0 & 0 & 0 &  & 0 & 0 \\
+ID & JSONPointerTest\#queryByEmptyKeySubObject & JSONPointer & 3 & 24 & 17 & 16 & 13 & 12 & 12 & 1 & 1 \\
+ID & TestStandardHttpServletRequestEx\#parameterMap\_merge & StandardHttpServletRequestEx & 5 & 10 & 10 & 10 & 9 & 0 &  & 0 & 0 \\
+ID & SetCodecTest\#stringifySet & SetCodec & 2 & 2 & 2 & 2 & 1 & 0 &  & 0 & 0 \\
+ID & AssetRenditionsDownloadServletTest\#doPost & AssetRenditionsDownloadServlet & 5 & 10 & 10 & 9 & 6 & 0 &  & 0 & 0 \\
+ID & NeutronNetworkAdapterTest\#gsonNeutronNetworkMarshalingTest & NeutronNetwork & 7 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+ID & TokenHooksTest\#addClaims & Hooks & 1 & 1 & 1 & 1 & 1 & 1 &  & 0 & 0 \\
+ID & LTI13NimbusTest\#testRSAFromString & LTI13Util & 2 & 10 & 10 & 2 & 0 & 0 &  & 0 & 0 \\
+ID & LTI13ObjectTest\#testTwo & OpenIDProviderConfiguration & 0 & 0 & 0 & 0 & 0 & 0 &  & 0 & 0 \\
+ID & ReflectorTest\#shouldSettersWithUnrelatedArgTypesThrowException & Reflector & 26 & 72 & 1 & 1 & 1 & 1 & 1 & 1 & 1 \\
+\bottomrule
+\end{tabular}
+\end{table}

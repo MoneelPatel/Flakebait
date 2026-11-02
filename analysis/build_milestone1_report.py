@@ -33,7 +33,7 @@ TEX = R / "tex"
 EVALS = ROOT / "data" / "evaluations"
 CATS = ["ID", "OD", "NIO", "TD"]
 CHECK_LABELS = {
-    "cap_module": "Diversity cap (module)", "cap_project": "Diversity cap (project)",
+    "cap_class": "Diversity cap (class)", "cap_module": "Diversity cap (module)", "cap_project": "Diversity cap (project)",
     "addressable": "Addressable test method", "a_offline_compile": "(a) Offline compile",
     "f_suite_under_10min": "(f) Suite < 10 min", "e_other_deterministic": "(e) Other test in class",
     "b_failing_20": "(b) Failing config 20/20", "b_passing_20": "(b) Passing config 20/20",

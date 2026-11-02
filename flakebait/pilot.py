@@ -143,10 +143,12 @@ def _write(rows: list[dict], path: Path) -> None:
 
 
 def current_pilot(rows: list[dict]) -> list[dict]:
-    """Runs on instances of the current pilot tests. A test can leave the selection after its pilot runs (a
-    corrected check, deviations.md #18); its runs still count against the budget but not in the statistics."""
-    from .instances import ARMS, LEVELS, accepted_candidates, instance_id, pilot_tests
-    keep = {instance_id(c, l, a) for c in pilot_tests(accepted_candidates()) for l in LEVELS for a in ARMS}
+    """Runs on instances of tests that are still selected. A test can leave the selection after its pilot runs (a
+    corrected check, deviations.md #18); its runs still count against the budget but not in the statistics. Tests
+    that stay selected keep their pilot runs even if a later cap change (#30, #31) moved them out of the first
+    3/3/2/2 accepted."""
+    from .instances import ARMS, LEVELS, accepted_candidates, instance_id
+    keep = {instance_id(c, l, a) for c in accepted_candidates() for l in LEVELS for a in ARMS}
     return [r for r in rows if r["instance"] in keep and current(r)]
 
 
@@ -208,8 +210,8 @@ def summarize(rows: list[dict]) -> None:
     else:
         chosen, why = "undecided", "no L1 runs completed"
     if excluded:
-        why += (f" ({excluded} earlier runs on tests no longer selected are excluded here; their cost counts "
-                f"against the budget.)")
+        why += (f" ({excluded} earlier runs are excluded here: rerun after a harness fix, or on a test no longer "
+                f"selected; their cost counts against the budget.)")
     control = [r for r in rows if r["arm"] == "control"]
     solved = sum(1 for r in control if r.get("success_main") in (True, "True"))
     rate = solved / len(control) if control else None

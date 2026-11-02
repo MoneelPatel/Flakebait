@@ -25,3 +25,28 @@ Unit tests (draw rules, trace parsing):
 | test_surefire::test_chain_and_frames | pass |
 | test_surefire::test_no_message_and_fallback | pass |
 
+End-to-end through the real path, per category:
+
+| category | arm | step | expected | observed | ok |
+|---|---|---|---|---|---|
+| TD | flaky | pre-edit run | pass | pass | True |
+| TD | flaky | first run after first edit | fail | fail | True |
+| TD | flaky | forced passing configuration | pass | pass | True |
+| TD | flaky | forced failing configuration | fail | fail | True |
+| TD | control | pre-edit run | pass | pass | True |
+| TD | control | first run after first edit | pass | pass | True |
+| TD | control | forced passing configuration | pass | pass | True |
+| TD | control | forced failing configuration | pass | pass | True |
+| ID | flaky | pre-edit run | pass | pass | True |
+| ID | flaky | first run after first edit | fail | fail | True |
+| ID | flaky | forced passing configuration | pass | pass | True |
+| ID | flaky | forced failing configuration | fail | fail | True |
+| OD | flaky | pre-edit run | pass | pass | True |
+| OD | flaky | first run after first edit | fail | fail | True |
+| OD | flaky | forced passing configuration | pass | pass | True |
+| OD | flaky | forced failing configuration | fail | fail | True |
+| NIO | flaky | pre-edit run | pass | pass | True |
+| NIO | flaky | first run after first edit | fail | fail | True |
+| NIO | flaky | forced passing configuration | pass | pass | True |
+| NIO | flaky | forced failing configuration | fail | fail | True |
+

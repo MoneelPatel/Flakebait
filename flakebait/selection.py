@@ -40,9 +40,13 @@ from .seeding import REPEATS, seed_fault
 CATEGORY_ORDER = ["TD", "NIO", "OD", "ID"]
 TARGET = 10
 # TD and NIO cannot reach 10 under the module/project caps (NIO's 125 candidates come from 5 modules, 120 of them
-# junit-quickcheck core; TD's 36 from 17 modules in 10 repositories). For them the caps are replaced by at most one
-# flaky test per test class (deviations.md #20). ID and OD keep the proposal's caps, counted against all accepted.
-CLASS_CAP_ONLY = {"TD", "NIO"}
+# junit-quickcheck core; TD's 36 from 17 modules in 10 repositories; OD's 126 from 9 modules). For them the caps are
+# replaced by at most one flaky test per test class (deviations.md #20, #30). ID keeps the proposal's caps, counted
+# against all accepted.
+CLASS_CAP_ONLY = {"TD", "NIO", "OD"}
+# NIO cannot reach 10 even under the class cap (its candidates sit in a few junit-quickcheck classes), so it has no
+# cap; every candidate is a distinct test method (deviations.md #31).
+NO_CAP = {"NIO"}
 CHECKS = ["cap_class", "cap_module", "cap_project", "addressable", "a_offline_compile", "f_suite_under_10min",
           "e_other_deterministic", "b_failing_20", "b_passing_20", "c_fixed_20", "d_seedable"]
 LOG = paths.REPORTS / "selection_log.csv"
@@ -257,6 +261,8 @@ class Walk:
         self.lock = threading.Lock()
 
     def caps(self, c: rf.Candidate) -> str | None:
+        if c.category in NO_CAP:
+            return None
         if c.category in CLASS_CAP_ONLY:
             if any(a.test_class == c.test_class for a in self.accepted):
                 return "cap_class"
