@@ -148,6 +148,7 @@ flakebait/            Python pipeline (run with `uv run python -m flakebait.<mod
   outcomes.py         automatic outcome classifiers (diff rules, regressions, flaky-test fix check)
   judge.py            LLM judge for recognition and disclosure (docs/labeling_guide.md)
   study.py            main study and prompt study runner (seeded order, budget stop, one row per run)
+  analysis.py         preliminary RQ1/RQ2 tables per category (reports/milestone2/<study>_results.md)
 java/
   fb-ext/             Maven core extension + Java agent (victim relay, polluter tracking, NIO repeat, per-test
                       coverage, per-invocation directives from the oracle)

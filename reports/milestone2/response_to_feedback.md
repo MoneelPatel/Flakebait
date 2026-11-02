@@ -1,8 +1,8 @@
 # Response to the Milestone 1 feedback
 
 Changes made in response to the feedback of Oct 25, with the design decisions recorded as deviations #32-#36
-(`reports/milestone1/deviations.md`). Numbers marked _(main study)_ are filled in from `main_runs.csv` once the
-main study has run.
+(`reports/milestone1/deviations.md`). Main-study numbers come from `main_runs.csv` (168 runs, Nov 2); the tables are in `main_results.md` and the
+findings in `findings.md`.
 
 ## 1. Beyond mutation: realistic bugs and bug reports
 
@@ -39,7 +39,8 @@ exposure level). Example (ormlite-core, LLM-written fault):
 
 **Finding.** Few real fix commits survive: most fix-like commits touching the target class are performance or
 documentation changes, no longer apply to the snapshot, or are not detected by the module's tests. Fault kinds per
-test are in `data/bugs/*.json` and the instance manifest _(final counts after seeding)_.
+test are in `data/bugs/*.json` and the instance manifest. Final counts: all 28 tests got an LLM-written bug; no
+reverted fix commit and no mutant was needed.
 
 ## 2. What counts as success, and what if the agent may not touch tests
 
@@ -64,13 +65,18 @@ for the Codex study as designed; the limits are local compute (Maven builds and 
 
 **Local arm** (deviation #35). Codex CLI runs against `gpt-oss:20b` served by Ollama on the M1 Pro (32 GB), through
 the same meter (calls logged at price 0), on the 9 pilot tests at L2, both arms. It answers whether the setup works
-with an open-weight model and gives a first comparison _(results after the runs)_. It is slow (one run at a time;
+with an open-weight model. Result (18 runs, Nov 2): the pipeline works end to end with a local model, but
+Ollama could not parse gpt-oss:20b's file-edit tool calls, so no run made an edit (`findings.md`); a different
+model server or model is needed before a comparison. It is slow (one run at a time;
 the model and the build containers share 32 GB), so a full open-model arm would need a GPU server.
 
 ## 4. Effectiveness per category, and whether the setup is realistic
 
 **Per-category breakdown.** The pilot (Milestone 1) by category, L2 flaky arm: observed exposure ID 2/3, OD 3/3,
-NIO 2/2, TD 1/1; at L1: ID 0/3, OD 1/3, NIO 0/2, TD 0/1. All main-study tables are per category _(main study)_.
+NIO 2/2, TD 1/1; at L1: ID 0/3, OD 1/3, NIO 0/2, TD 0/1. All main-study tables are per category (`main_results.md`). Main study, flaky arm: the failure was recognized as
+unrelated in 79% of exposed main phases and 91% of exposed L3 phases, and fixed at the root in 74% of exposed
+runs. NIO is the hardest: half its runs hit the turn cap, and 5/30 ended with the agent undoing its own correct
+fix (`findings.md`).
 
 **Realism: the category-faithful shim** (deviation #33). In Milestone 1 the shim decided the flaky test's outcome
 by a random draw, no matter how the agent ran its tests. That is realistic for ID (hash/iteration order varies
@@ -84,7 +90,9 @@ between JVMs) and TD (timing), but not for OD and NIO, whose failures depend on 
   (the class's "Tests run" count includes both), so the agent can notice the repetition.
 
 The agent's explicit choices always take precedence, so it *has* the control the feedback asks about; whether it
-uses it is part of RQ1/RQ3 (trajectory analysis of order- and repetition-related reasoning) _(main study)_.
+uses it is part of RQ1/RQ3 (trajectory analysis of order- and repetition-related reasoning). It mostly does not:
+at L2 the agent runs the named class alone, so OD failed in only 3/21 main phases (ID 24/27, NIO 27/30), and
+then in 21/21 full-suite CI runs.
 
 **A finding on OD realism.** A fully native shuffled order almost never reproduced ReproFlake's OD failure: for
 ormlite-core, the victim passed in all five random orders in which the polluter ran first, because tests between

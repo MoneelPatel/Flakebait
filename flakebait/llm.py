@@ -61,7 +61,7 @@ class Session:
     def __exit__(self, *exc) -> None:
         sh(["docker", "rm", "-f", self.name])
 
-    def ask(self, system: str, user: str, schema: dict | None = None, retries: int = 2) -> str:
+    def ask(self, system: str, user: str, schema: dict | None = None, retries: int = 5) -> str:
         """One Responses API call; returns the output text (JSON text when a schema is given)."""
         body = {"model": self.model, "instructions": system, "input": user,
                 "reasoning": {"effort": self.effort}, "store": False}
@@ -78,7 +78,11 @@ class Session:
                 err = e.read().decode(errors="replace")[:300]
                 if "flakebait_cap" in err or attempt == retries or e.code < 500:
                     raise RuntimeError(f"model call failed: HTTP {e.code} {err}") from None
-                time.sleep(5 * (attempt + 1))
+                time.sleep(10 * (attempt + 1))
+            except (urllib.error.URLError, ConnectionError, TimeoutError) as e:   # transient network failures
+                if attempt == retries:
+                    raise RuntimeError(f"model call failed: {type(e).__name__}: {e}") from None
+                time.sleep(10 * (attempt + 1))
         texts = [c.get("text", "") for item in resp.get("output", []) if item.get("type") == "message"
                  for c in item.get("content", []) if c.get("type") == "output_text"]
         return "".join(texts)

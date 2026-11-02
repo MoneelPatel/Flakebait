@@ -10,7 +10,7 @@ Flakebait is a case study of how one coding agent, **OpenAI's Codex CLI on GPT-6
 
 ## Status
 
-Milestone 1 is complete (28 tests; Codex pilot). Milestone 2 is in progress: bug-based instances, the
+Milestone 1 is complete (28 tests; Codex pilot). Milestone 2: main study done (168 runs, `reports/milestone2/findings.md`); local arm ran but no usable results (Ollama tool-call parsing). Built: bug-based instances, the
 category-faithful shim, outcome classifiers, the judge, the main study, and a local-model arm (professor's
 feedback; deviations #32-#36). Progress notes: `reports/milestone1/progress.md`. Design decisions that differ from the proposal:
 `reports/milestone1/deviations.md` (add a row whenever you make another one). When you add or move a

@@ -285,10 +285,19 @@ class Run:
             "-d", f"phase={phase}&mode={mode}", f"http://fb-oracle:{ORACLE_PORT}/control/phase"])
 
     def ci(self) -> tuple[bool, str]:
-        """Full module suite inside the agent's container, through the shim (failing configuration forced)."""
+        """Full module suite inside the agent's container, through the shim (failing configuration forced).
+        CI runs on its own checkout, so it must not change the agent's sources: some builds rewrite them (mybatis's
+        license plugin updates every copyright year). The tree is restored afterwards, keeping build output."""
         m = self.meta["module"]
         cmd = f"cd /work && mvn -B -Dstyle.color=never {'-pl ' + shlex.quote(m) + ' ' if m not in ('.', '') else ''}test"
-        p = sh(["docker", "exec", self.names["agent"], "bash", "-lc", cmd], timeout=3600)
+        pre = self.dir / ".ci-pre"
+        shutil.rmtree(pre, ignore_errors=True)
+        sh(["cp", "-cR", str(self.dir / "work"), str(pre)])
+        try:
+            p = sh(["docker", "exec", self.names["agent"], "bash", "-lc", cmd], timeout=3600)
+        finally:
+            sh(["rsync", "-a", "--delete", "--exclude", "target/", f"{pre}/", f"{self.dir / 'work'}/"])
+            shutil.rmtree(pre, ignore_errors=True)
         log = p.stdout + p.stderr
         (self.dir / "ci_log.txt").write_text(log)
         # Some builds tolerate test failures (BUILD SUCCESS with failures); CI is green only if no test failed.
@@ -427,6 +436,16 @@ def study_spend() -> float:
     """Dollars spent on the model API so far in the whole study: every call any run's meter has logged
     (pilot, main study, prompt study, smoke tests), priced at the current config (the higher of the logged and
     recomputed cost). The study budget is enforced against this total."""
+    # A run being restarted moves its directory to runs/_attempts while we read; then read everything again.
+    for _ in range(5):
+        try:
+            return _spend_once()
+        except FileNotFoundError:
+            time.sleep(1)
+    return _spend_once()
+
+
+def _spend_once() -> float:
     total = 0.0
     logs = [*paths.RUNS.glob("*/meter/meter_log.jsonl"), *paths.RUNS.glob("_attempts/*/meter/meter_log.jsonl")]
     for log in logs:

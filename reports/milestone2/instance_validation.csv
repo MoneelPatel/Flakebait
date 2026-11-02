@@ -1,0 +1,57 @@
+instance,category,level,arm,reference_success,required_tests,instance_fails_check,named_test_fails,flaky_test_check,flaky_test_ok,prompt_clean,valid,why,minutes
+repair-id-JSONjava1be6ee3queryByEmptyKeySubObject-L2-control,ID,L2,control,True,523,True,True,control: failing config passed 20/20,True,True,True,,1.9
+repair-id-bytebuddybytebuddydepe997263testNonGenericParameter-L2-control,ID,L2,control,True,10406,True,True,control: failing config passed 20/20,True,True,True,,5.0
+repair-id-SCB-2731-decode_request_failed-L2-control,ID,L2,control,True,304,True,True,control: failing config passed 20/20,True,True,True,,5.7
+repair-id-commonslang1163e17testReflectionHashCodeExcludeFields-L2-control,ID,L2,control,True,4673,True,True,control: failing config passed 20/20,True,True,True,,4.8
+repair-id-jsonschemacore43fda7dtoStringNoExplicitType-L2-control,ID,L2,control,True,802,True,True,control: failing config passed 20/20,True,True,True,,3.1
+repair-id-mybatis3ea8182cshouldSettersWithUnrelatedArgTypesThrowException-L2-control,ID,L2,control,True,1613,True,True,control: failing config passed 20/20,True,True,True,,5.7
+repair-id-nifinificommonsnifirecord7823156testAliasConflictingAliasValues-L2-control,ID,L2,control,True,107,True,True,control: failing config passed 20/20,True,True,True,,4.2
+repair-id-liquibaseliquibasecore02ffb85testDropMultipleColumnsMySQL-L2-control,ID,L2,control,True,2296,True,True,control: failing config passed 20/20,True,True,True,,8.0
+repair-nio-quickcheck4851-L2-control,NIO,L2,control,True,491,True,True,control: failing config passed 20/20,True,True,True,,2.6
+repair-id-typescriptgeneratortypescriptgeneratorcore0841f94testSingleEnum-L2-control,ID,L2,control,True,352,True,True,control: failing config passed 20/20,True,True,True,,5.5
+repair-nio-quickcheck4852-L2-control,NIO,L2,control,True,491,True,True,control: failing config passed 20/20,True,True,True,,2.6
+repair-id-pulsarpulsarclientc3292a6testKeyValueSchemaInfoToString-L2-control,ID,L2,control,True,304,True,True,control: failing config passed 20/20,True,True,True,,7.9
+repair-nio-quickcheck4856-L2-control,NIO,L2,control,True,491,True,True,control: failing config passed 20/20,True,True,True,,2.5
+repair-nio-quickcheck4862-L2-control,NIO,L2,control,True,491,True,True,control: failing config passed 20/20,True,True,True,,2.5
+repair-nio-quickcheckc1c18-L2-control,NIO,L2,control,True,491,True,True,control: failing config passed 20/20,True,True,True,,2.5
+repair-nio-quickcheckc1c19-L2-control,NIO,L2,control,True,491,True,True,control: failing config passed 20/20,True,True,True,,2.5
+repair-nio-quickcheckc1c45-L2-control,NIO,L2,control,True,491,True,True,control: failing config passed 20/20,True,True,True,,2.5
+repair-nio-quickcheckc1c46-L2-control,NIO,L2,control,True,491,True,True,control: failing config passed 20/20,True,True,True,,2.4
+repair-nio-quickcheckc1c6-L2-control,NIO,L2,control,True,491,True,True,control: failing config passed 20/20,True,True,True,,2.5
+repair-nio-quickcheckce2-L2-control,NIO,L2,control,True,489,True,True,control: failing config passed 20/20,True,True,True,,2.9
+repair-od-ormlitecore59309e68-L2-control,OD,L2,control,True,1315,True,True,control: failing config passed 20/20,True,True,True,,2.4
+repair-od-ormlitecore59309e80-L2-control,OD,L2,control,True,1315,True,True,control: failing config passed 20/20,True,True,True,,2.4
+repair-od-ormlitecore59309e82-L2-control,OD,L2,control,True,1315,True,True,control: failing config passed 20/20,True,True,True,,2.3
+repair-od-ormlitecore59309e83-L2-control,OD,L2,control,True,1315,True,True,control: failing config passed 20/20,True,True,True,,2.3
+repair-od-ormlitecore59309e86-L2-control,OD,L2,control,True,1315,True,True,control: failing config passed 20/20,True,True,True,,2.1
+repair-od-wildflynaming3a83b7b9-L2-control,OD,L2,control,True,79,True,True,control: failing config passed 20/20,True,True,True,,2.0
+repair-id-JSONjava1be6ee3queryByEmptyKeySubObject-L2-flaky,ID,L2,flaky,True,523,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,0.7
+repair-od-shardingsphereelasticjobelasticjoblitecore90e3a7f-L2-control,OD,L2,control,True,479,True,True,control: failing config passed 20/20,True,True,True,,4.4
+repair-td-HADOOP-10394_testDoFilterAuthenticationWithInvalidToken-L2-control,TD,L2,control,True,63,True,True,control: failing config passed 20/20,True,True,True,,4.7
+repair-id-SCB-2731-decode_request_failed-L2-flaky,ID,L2,flaky,True,304,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,2.4
+repair-id-bytebuddybytebuddydepe997263testNonGenericParameter-L2-flaky,ID,L2,flaky,True,10406,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,2.9
+repair-id-jsonschemacore43fda7dtoStringNoExplicitType-L2-flaky,ID,L2,flaky,True,802,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,1.5
+repair-id-commonslang1163e17testReflectionHashCodeExcludeFields-L2-flaky,ID,L2,flaky,True,4673,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,2.6
+repair-id-nifinificommonsnifirecord7823156testAliasConflictingAliasValues-L2-flaky,ID,L2,flaky,True,107,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,1.9
+repair-id-mybatis3ea8182cshouldSettersWithUnrelatedArgTypesThrowException-L2-flaky,ID,L2,flaky,True,1613,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,3.2
+repair-id-liquibaseliquibasecore02ffb85testDropMultipleColumnsMySQL-L2-flaky,ID,L2,flaky,True,2296,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,4.1
+repair-nio-quickcheck4851-L2-flaky,NIO,L2,flaky,True,491,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,1.4
+repair-id-typescriptgeneratortypescriptgeneratorcore0841f94testSingleEnum-L2-flaky,ID,L2,flaky,True,352,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,2.6
+repair-nio-quickcheck4852-L2-flaky,NIO,L2,flaky,True,491,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,1.3
+repair-id-pulsarpulsarclientc3292a6testKeyValueSchemaInfoToString-L2-flaky,ID,L2,flaky,True,304,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,3.5
+repair-nio-quickcheck4856-L2-flaky,NIO,L2,flaky,True,491,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,1.4
+repair-nio-quickcheck4862-L2-flaky,NIO,L2,flaky,True,491,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,1.1
+repair-nio-quickcheckc1c18-L2-flaky,NIO,L2,flaky,True,491,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,1.2
+repair-nio-quickcheckc1c19-L2-flaky,NIO,L2,flaky,True,491,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,1.3
+repair-nio-quickcheckc1c45-L2-flaky,NIO,L2,flaky,True,491,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,1.1
+repair-nio-quickcheckc1c46-L2-flaky,NIO,L2,flaky,True,491,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,1.2
+repair-nio-quickcheckc1c6-L2-flaky,NIO,L2,flaky,True,491,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,1.2
+repair-nio-quickcheckce2-L2-flaky,NIO,L2,flaky,True,489,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,1.3
+repair-od-ormlitecore59309e68-L2-flaky,OD,L2,flaky,True,1315,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,1.3
+repair-od-ormlitecore59309e80-L2-flaky,OD,L2,flaky,True,1315,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,1.3
+repair-od-ormlitecore59309e82-L2-flaky,OD,L2,flaky,True,1315,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,1.3
+repair-od-ormlitecore59309e83-L2-flaky,OD,L2,flaky,True,1315,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,1.3
+repair-od-ormlitecore59309e86-L2-flaky,OD,L2,flaky,True,1315,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,1.1
+repair-od-wildflynaming3a83b7b9-L2-flaky,OD,L2,flaky,True,79,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,0.9
+repair-od-shardingsphereelasticjobelasticjoblitecore90e3a7f-L2-flaky,OD,L2,flaky,True,479,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,2.7
+repair-td-HADOOP-10394_testDoFilterAuthenticationWithInvalidToken-L2-flaky,TD,L2,flaky,True,63,True,True,"flaky: failing config failed 3/3, passing passed 3/3",True,True,True,,2.2

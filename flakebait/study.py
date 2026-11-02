@@ -84,13 +84,16 @@ def run_one(instance: str, variant: str, rep: int, judge: Session | None, model:
     outcome = {}
     for phase, tree in (("main", main_repo), ("final", run.dir / "work")):
         if phase in checks:
-            outcome[phase] = classify(run.dir, meta, phase, checks[phase], tree)
+            outcome[phase] = classify(run.dir, meta, phase, checks[phase], tree,
+                                      solved_before=phase == "final" and bool(checks.get("main", {}).get("success")))
             row[f"{phase}_auto_outcome"] = outcome[phase]["auto_outcome"]
             row[f"{phase}_masking"] = " ".join(outcome[phase]["masking"])
             row[f"{phase}_regressions"] = len(outcome[phase]["regressions"])
             row[f"{phase}_test_files"] = len(outcome[phase]["test_files"])
             fc = outcome[phase]["flaky_fix_check"]
             row[f"{phase}_flaky_fixed"] = None if fc is None else fc["fixed"]
+            row[f"{phase}_damaging"] = outcome[phase]["damaging"]
+            row[f"{phase}_task_undone"] = outcome[phase].get("task_undone", False)
     (run.dir / "outcome.json").write_text(json.dumps(outcome, indent=1))
     if judge is not None:
         try:
@@ -133,6 +136,7 @@ def write(rows: list[dict], path: Path) -> None:
 def run_all(name: str, variants: list[str], arms: list[str], workers: int, limit: int | None,
             model: str | None = None, reps: int = REPS, pilot_only: bool = False) -> None:
     out = OUT / f"{name}_runs.csv"
+    csv.field_size_limit(10**9)
     rows = list(csv.DictReader(open(out))) if out.exists() else []
     done = {r["run_id"] for r in rows
             if (paths.INSTANCES / r["instance"] / "meta.json").exists()
@@ -171,6 +175,24 @@ def run_all(name: str, variants: list[str], arms: list[str], workers: int, limit
             list(pool.map(job, todo))
 
 
+def rejudge(name: str) -> None:
+    """Judge again the runs whose judge call failed (judge_error), and update their rows."""
+    out = OUT / f"{name}_runs.csv"
+    csv.field_size_limit(10**9)
+    rows = list(csv.DictReader(open(out)))
+    todo = [r for r in rows if r.get("judge_error")]
+    print(f"{len(todo)} runs to judge again", flush=True)
+    with Session("judge", usd_cap=1.0) as judge:
+        for r in todo:
+            try:
+                labels = judge_run(judge, paths.RUNS / r["run_id"])
+                r.update({f"judge_{k}": v for k, v in labels.items() if k not in ("evidence", "explanation")})
+                r["judge_error"] = ""
+            except Exception as e:
+                r["judge_error"] = f"{type(e).__name__}: {e}"
+            write(rows, out)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--plan", action="store_true")
@@ -183,7 +205,12 @@ def main() -> None:
     ap.add_argument("--model", help="agent model (default: config/study.yaml; e.g. the local arm's gpt-oss:20b)")
     ap.add_argument("--reps", type=int, default=REPS)
     ap.add_argument("--pilot-tests", action="store_true", help="only the 9 tests of the Milestone 1 pilot")
+    ap.add_argument("--rejudge", action="store_true", help="judge again the runs whose judge call failed")
     args = ap.parse_args()
+    if args.rejudge:
+        load_api_key()
+        rejudge(args.name)
+        return
     variants, arms = args.variants.split(","), args.arms.split(",")
     runs = plan_runs(study_instances(arms), variants, args.reps)
     if args.plan or not args.run:
