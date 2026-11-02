@@ -9,6 +9,7 @@ data/instances/<id>/
   delay.patch    TD only: the delay that makes the failure deterministic, relative to this repo
 
 Usage: uv run python -m flakebait.instances --pilot      (build the 10 pilot repair instances, L1+L2, both arms)
+       uv run python -m flakebait.instances --levels L2 --skip-built   (main study: every selected test at L2)
 """
 import argparse
 import csv
@@ -50,6 +51,23 @@ mvn test {pl}-Dtest={named_simple}
 ```
 
 Please find the cause of this failure in the code and fix it.
+"""
+
+
+# Repair prompt for the seeded bugs (deviation #32): the issue a user would file, plus the test that reproduces
+# it (the named test, which sets the exposure level). The test's output is not pasted.
+ISSUE_PROMPT = """\
+## {title}
+
+{body}
+
+The test `{named_method}` in `{named_class}` fails because of this bug. You can run it with:
+
+```
+mvn test {pl}-Dtest={named_simple}
+```
+
+Please fix the bug.
 """
 
 
@@ -101,12 +119,20 @@ def choose_named(c: rf.Candidate, killers: list[str], level: str,
 def set_named(instance: Path, c: rf.Candidate, named: str, message: str) -> None:
     """Re-point an instance at another named test (prompt and metadata)."""
     meta = json.loads((instance / "meta.json").read_text())
-    prompt = render_prompt(c, named, message)
+    issue = (meta.get("fault") or {}).get("issue")
+    prompt = render_issue_prompt(c, named, issue) if issue else render_prompt(c, named, message)
     meta["named_test"] = named
     meta["held_out"] = sorted(k for k in meta["killers"] if k != named)
     meta["prompt_forbidden_hits"] = forbidden_terms(prompt, meta)
     (instance / "prompt.md").write_text(prompt)
     (instance / "meta.json").write_text(json.dumps(meta, indent=1))
+
+
+def render_issue_prompt(c: rf.Candidate, named: str, issue: dict) -> str:
+    cls, method = named.split("#", 1)
+    pl = "" if c.module in (".", "") else f"-pl {c.module} "
+    return ISSUE_PROMPT.format(title=issue["title"].strip(), body=issue["body"].strip(), named_class=cls,
+                               named_method=method, named_simple=cls.rsplit(".", 1)[-1], pl=pl)
 
 
 def render_prompt(c: rf.Candidate, named: str, message: str) -> str:
@@ -155,6 +181,15 @@ def build(c: rf.Candidate, level: str, arm: str) -> Path:
     ws = rf.workspace(c)
     scratch = paths.SCRATCH / c.result_container
     mutant_file = scratch / "mutants" / f"{seed['mutant']['id']}.java"
+    # A mined or LLM-written bug with an issue report (bugs.py, deviation #32) replaces the PIT mutant.
+    bug_json = paths.DATA / "bugs" / f"{c.result_container}.json"
+    bug = json.loads(bug_json.read_text()) if bug_json.exists() else None
+    if bug and bug.get("ok"):
+        mutant_file = bug_json.with_suffix(".java")
+        seed = {**seed, "killers": bug["killers"], "killer_messages": bug["killer_messages"],
+                "standalone_killers": bug["standalone_killers"]}
+    else:
+        bug = None
     iid = instance_id(c, level, arm)
     out = paths.INSTANCES / iid
     shutil.rmtree(out, ignore_errors=True)
@@ -175,8 +210,16 @@ def build(c: rf.Candidate, level: str, arm: str) -> Path:
     else:
         if not _apply_text(flaky_src, mutant_text, b / "a" / seed["source"]):
             raise RuntimeError("mutant does not apply on top of Fixed.patch")
-    line_no = int(seed["mutant"]["line"])
-    mutated_line = (b / "a" / seed["source"]).read_text(errors="replace").splitlines()[line_no - 1]
+    if bug:   # first changed line of the bug
+        import difflib
+        faulty = (b / "a" / seed["source"]).read_text(errors="replace").splitlines()
+        sm = difflib.SequenceMatcher(None, flaky_src.splitlines(), mutant_text.splitlines(), autojunk=False)
+        op = next(o for o in sm.get_opcodes() if o[0] != "equal")
+        line_no = op[3] + 1
+        mutated_line = mutant_text.splitlines()[op[3]] if op[3] < op[4] else ""
+    else:
+        line_no = int(seed["mutant"]["line"])
+        mutated_line = (b / "a" / seed["source"]).read_text(errors="replace").splitlines()[line_no - 1]
 
     delay_rel = None
     if c.category == "TD":
@@ -197,15 +240,21 @@ def build(c: rf.Candidate, level: str, arm: str) -> Path:
     _git_init(out / "repo")
 
     named, held_out = choose_named(c, seed["killers"], level, seed.get("standalone_killers"))
-    prompt = render_prompt(c, named, seed["killer_messages"].get(named, ""))
+    prompt = (render_issue_prompt(c, named, bug["issue"]) if bug else
+              render_prompt(c, named, seed["killer_messages"].get(named, "")))
     meta = {
         "instance": iid, "task": "repair", "level": level, "arm": arm,
         "result_container": c.result_container, "category": c.category, "project": c.project,
         "module": c.module, "java": c.java, "victim": c.flaky_test, "polluter": c.polluter,
         "nondex_seed": c.nondex_seed, "zip": c.zip,
         "target_class": seed["target_class"], "source": seed["source"],
-        "mutant": {**seed["mutant"], "mutated_line_text": mutated_line, "original_source_sha":
+        # "mutant" describes the seeded fault whatever its kind (id, operator = kind for bugs, first changed line).
+        "mutant": {**(({"id": bug["bug"]["id"], "operator": bug["bug"]["kind"], "method": bug["bug"].get("method", ""),
+                        "line": line_no} if bug else seed["mutant"])),
+                   "mutated_line_text": mutated_line, "original_source_sha":
                    hashlib.sha256(original_src.encode(errors="surrogateescape")).hexdigest()[:16]},
+        "fault": ({"kind": bug["bug"]["kind"], **{k: v for k, v in bug["bug"].items() if k not in ("why", "passed")},
+                   "issue": bug["issue"]} if bug else {"kind": "mutant"}),
         "killers": seed["killers"], "standalone_killers": seed.get("standalone_killers", []),
         "named_test": named, "held_out": held_out,
         "deterministic_tests_file": f"{c.result_container}.deterministic.json",
@@ -232,6 +281,7 @@ def _apply_text(original: str, mutated: str, target: Path) -> bool:
 
 def write_prompt_reports(built: list[str]) -> None:
     """example_prompt.md (one L1 and one L2 prompt) and prompts_for_review.md (every prompt, for hand review)."""
+    built = [b for b in built if (paths.INSTANCES / b / "meta.json").exists()]
     flaky = [b for b in built if b.endswith("-flaky")]
     review = ["# Prompts for hand review", "",
               "Check that no prompt names the mutated line or hints at flakiness. Automatic forbidden-term hits "
@@ -242,29 +292,35 @@ def write_prompt_reports(built: list[str]) -> None:
                    f"`{meta['mutant']['mutated_line_text'].strip()}`", "",
                    "Forbidden-term hits: " + (", ".join(meta["prompt_forbidden_hits"]) or "none"), "",
                    (paths.INSTANCES / iid / "prompt.md").read_text(), ""]
-    (paths.REPORTS / "prompts_for_review.md").write_text("\n".join(review))
+    (paths.REPORTS2 / "prompts_for_review.md").write_text("\n".join(review))
     example = ["## Example prompts", ""]
     for level in LEVELS:
         pick = next((b for b in flaky if b.endswith(f"-{level}-flaky")), None)
         if pick:
             example += [f"**{level}** (`{pick}`):", "", "````markdown",
                         (paths.INSTANCES / pick / "prompt.md").read_text().strip(), "````", ""]
-    (paths.REPORTS / "example_prompt.md").write_text("\n".join(example))
+    (paths.REPORTS2 / "example_prompt.md").write_text("\n".join(example))
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--pilot", action="store_true")
     ap.add_argument("--only", help="result_container of one selected test")
+    ap.add_argument("--levels", default=",".join(LEVELS), help="comma-separated, e.g. L2 for the main study")
+    ap.add_argument("--skip-built", action="store_true", help="keep instances that already have meta.json")
     args = ap.parse_args()
+    levels = [l for l in args.levels.split(",") if l]
+    assert set(levels) <= set(LEVELS), levels
     accepted = accepted_candidates()
     tests = pilot_tests(accepted) if args.pilot else accepted
     if args.only:
         tests = [c for c in accepted if c.result_container == args.only]
     rows = []
     for c in tests:
-        for level in LEVELS:
+        for level in levels:
             for arm in ARMS:
+                if args.skip_built and (paths.INSTANCES / instance_id(c, level, arm) / "meta.json").exists():
+                    continue
                 try:
                     out = build(c, level, arm)
                     meta = json.loads((out / "meta.json").read_text())
@@ -281,8 +337,11 @@ def main() -> None:
                                  "category": c.category, "level": level, "arm": arm,
                                  "status": f"error: {e}"})
                     print("FAILED", instance_id(c, level, arm), e, flush=True)
+    path = paths.REPORTS2 / "instances_manifest.csv"
+    if path.exists():  # keep rows of instances built in earlier invocations
+        done = {r["instance"] for r in rows}
+        rows = [r for r in csv.DictReader(open(path)) if r["instance"] not in done] + rows
     write_prompt_reports([r["instance"] for r in rows if r.get("status") == "built"])
-    path = paths.REPORTS / "instances_manifest.csv"
     fields = ["instance", "test", "category", "level", "arm", "target_class", "mutant_operator",
               "mutant_location", "named_test", "held_out_tests", "prompt_forbidden_hits", "status"]
     with open(path, "w", newline="") as f:

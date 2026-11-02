@@ -21,6 +21,14 @@ import org.codehaus.plexus.util.xml.Xpp3Dom;
  *
  * <p>Victim mode (default): active only when the oracle answers. Each Maven invocation gets an id that the
  * agent sends with every flaky-test execution, so the oracle draws once per invocation and logs the command.
+ * In the category-faithful shim (OD, NIO; deviations.md #33) the oracle's answer to the invocation start can
+ * carry directives for this invocation:
+ * <ul>
+ *   <li>{@code PROP <surefire parameter> <property> <value>}: set the Surefire parameter (e.g. a seeded random
+ *       test-class order), unless the user set the property or the POM configures the parameter, so the agent
+ *       keeps control over how its tests run;</li>
+ *   <li>{@code REPEAT <class#method>}: the test runs twice in the JVM, both executions reported.</li>
+ * </ul>
  *
  * <p>Coverage mode ({@code -Dfb.coverage=<dir>}): also attaches the JaCoCo agent given by {@code -Dfb.jacoco}
  * and dumps one exec file per test into the directory.
@@ -37,6 +45,7 @@ public class FlakebaitParticipant extends AbstractMavenLifecycleParticipant {
     @Override
     public void afterProjectsRead(MavenSession session) throws MavenExecutionException {
         Properties user = session.getUserProperties();
+        props.clear();
         String agentJar = ownJar();
         if (agentJar == null) {
             return;
@@ -55,18 +64,53 @@ public class FlakebaitParticipant extends AbstractMavenLifecycleParticipant {
             invocationId = UUID.randomUUID().toString();
             String command = System.getProperty("sun.java.command", "");
             String cwd = session.getRequest().getBaseDirectory();
-            if (!OracleClient.invocationStarted(invocationId, cwd, command)) {
+            String directives = OracleClient.invocationStarted(invocationId, cwd, command);
+            if (directives == null) {
                 return; // No oracle reachable: behave exactly like plain Maven.
             }
             victimMode = true;
-            javaagent = "-javaagent:" + agentJar + "=inv=" + invocationId;
+            String agentArgs = "inv=" + invocationId;
+            for (String line : directives.split("\n")) {
+                String[] parts = line.trim().split(" ");
+                if (parts.length == 4 && "PROP".equals(parts[0])) {
+                    props.add(parts);
+                } else if (parts.length == 2 && "REPEAT".equals(parts[0])) {
+                    agentArgs += ",repeat=" + parts[1];
+                }
+            }
+            javaagent = "-javaagent:" + agentJar + "=" + agentArgs;
         }
 
         for (MavenProject project : session.getProjects()) {
             for (Plugin plugin : project.getBuildPlugins()) {
                 if (SUREFIRE.equals(plugin.getArtifactId())) {
                     attach(project, plugin, javaagent, user);
+                    for (String[] p : props) {
+                        setUnlessUserSet(plugin, p[1], p[2], p[3], user);
+                    }
                 }
+            }
+        }
+    }
+
+    private final java.util.List<String[]> props = new java.util.ArrayList<>();
+
+    /** Sets a Surefire parameter on the plugin and its executions, unless the user or the POM already did. */
+    private static void setUnlessUserSet(Plugin plugin, String param, String property, String value,
+                                         Properties user) {
+        if (user.getProperty(property) != null || System.getProperty(property) != null) {
+            return;
+        }
+        java.util.List<Xpp3Dom> confs = new java.util.ArrayList<>();
+        confs.add((Xpp3Dom) plugin.getConfiguration());
+        for (PluginExecution execution : plugin.getExecutions()) {
+            confs.add((Xpp3Dom) execution.getConfiguration());
+        }
+        for (Xpp3Dom conf : confs) {
+            if (conf != null && conf.getChild(param) == null) {
+                Xpp3Dom child = new Xpp3Dom(param);
+                child.setValue(value);
+                conf.addChild(child);
             }
         }
     }

@@ -23,6 +23,7 @@ public final class VictimHook {
 
     private static volatile String invocation = "";
     private static volatile Instrumentation instrumentation;
+    private static volatile boolean polluterRan;
 
     private VictimHook() {}
 
@@ -31,13 +32,18 @@ public final class VictimHook {
         instrumentation = inst;
     }
 
+    public static void polluterRan() {
+        polluterRan = true;
+    }
+
     static String invocation() {
         return invocation;
     }
 
     /** Returns true to skip the test body (pass), false to run it; throws to fail. */
     public static boolean run(String type, String method) throws Throwable {
-        String body = "inv=" + OracleClient.enc(invocation) + "&victim=" + OracleClient.enc(type + "#" + method);
+        String body = "inv=" + OracleClient.enc(invocation) + "&victim=" + OracleClient.enc(type + "#" + method)
+                + "&polluter_ran=" + (polluterRan ? "1" : "0");
         String response = OracleClient.post("/exec", body, 5000, READ_TIMEOUT_MS);
         if (response == null) {
             return false;

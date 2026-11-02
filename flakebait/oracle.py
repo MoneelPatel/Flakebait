@@ -9,6 +9,14 @@ executes the flaky test, the oracle
        first invocation after first edit   -> failing   (rule "first_post_edit")
        otherwise                           -> failing with probability p (rule "draw")
      In forced modes (L3 CI phase, validation) the configuration is fixed instead.
+     Category-faithful shim (config "faithful", OD and NIO in the agent's own runs; deviations.md #33): no
+     relay. At each invocation's start the oracle tells fb-ext how to run it, and the flaky test runs natively:
+       OD   a random test-class order with a seeded seed (rule "faithful_order"); fb-ext reports whether the
+            polluter ran earlier in the JVM, and only then is the failing configuration relayed (a native run
+            almost never fails: tests run between polluter and victim, or the polluter's own class, reset the
+            state); otherwise the victim passes
+       NIO  with probability p (rule "faithful_repeat"), the victim runs twice in the JVM, both reported
+     Explicit choices by the agent (-Dsurefire.runOrder, -Dtest) take precedence.
   2. reproduces that configuration on a private copy of the agent's current tree (repro.py), so a real fix
      by the agent really makes the failing configuration pass;
   3. relays the outcome: pass, or the exact failure (type, message, frames, causes) as reported by Surefire.
@@ -54,6 +62,7 @@ class Oracle:
         self.rng = random.Random(self.cfg["seed"])
         self.p = float(self.cfg.get("p", 0.5))
         self.mode = self.cfg.get("mode", "agent")       # agent | force_failing | force_passing
+        self.faithful = bool(self.cfg.get("faithful"))
         self.phase = "main"
         self.first_fail_done = False
         self.draw_index = 0
@@ -110,6 +119,29 @@ class Oracle:
         d["edited"] = edited
         self.decisions[inv] = d
         return d
+
+    def faithful_now(self) -> bool:
+        return self.faithful and self.mode == "agent"
+
+    def directives(self, inv: str) -> str:
+        """Faithful shim: how fb-ext should run this invocation (one directive per line)."""
+        if not self.faithful_now():
+            return "ok\n"
+        with self.lock:
+            self.draw_index += 1
+            if self.c.category == "OD":
+                seed = self.rng.randrange(1, 2**31)
+                d = {"rule": "faithful_order", "order_seed": seed, "draw_index": self.draw_index}
+                out = (f"PROP runOrder surefire.runOrder random\n"
+                       f"PROP runOrderRandomSeed surefire.runOrder.random.seed {seed}\n")
+            else:
+                u = self.rng.random()
+                d = {"rule": "faithful_repeat", "u": round(u, 6), "repeat": u < self.p,
+                     "draw_index": self.draw_index}
+                out = f"REPEAT {self.c.flaky_test}\n" if u < self.p else ""
+            self.decisions[inv] = d
+        self.log({"event": "draw", "inv": inv, **d})
+        return "ok\n" + out
 
     # ------------------------------------------------------------------ reproduction
 
@@ -194,10 +226,18 @@ class Oracle:
 
     # ------------------------------------------------------------------ protocol
 
-    def exec(self, inv: str, victim: str) -> str:
+    def exec(self, inv: str, victim: str, polluter_ran: bool = False) -> str:
+        if self.faithful_now() and self.c.category == "NIO":   # runs natively in the agent's JVM
+            self.log({"event": "exec", "inv": inv, "victim": victim, "verdict": "RUN", "native": True,
+                      **self.decisions.get(inv, {}), "command": self.invocations.get(inv, {}).get("command", "")})
+            return "RUN\n"
         with self.lock:
             tree = self.tree_hash()
-            d = self.decide(inv, tree)
+            if self.faithful_now():   # OD: the configuration follows the order the agent's run really had
+                d = {**self.decisions.get(inv, {}), "config": FAILING if polluter_ran else PASSING,
+                     "polluter_ran": polluter_ran, "edited": tree != self.baseline_hash}
+            else:
+                d = self.decide(inv, tree)
             verdict, chain, info = self.reproduce(d["config"], tree)
             self.log({"event": "exec", "inv": inv, "victim": victim, "tree": tree, **d, "verdict": verdict, **info,
                       "command": self.invocations.get(inv, {}).get("command", "")})
@@ -236,14 +276,16 @@ def serve(state: Path, port: int) -> None:
                     oracle.invocations[form.get("inv", "")] = {"command": form.get("command", ""),
                                                                "cwd": form.get("cwd", "")}
                     oracle.log({"event": "invocation_start", **form})
-                    body = "ok\n"
+                    body = oracle.directives(form.get("inv", ""))
                 elif path == "/invocation/end":
                     oracle.log({"event": "invocation_end", **form})
                     body = "ok\n"
                 elif path == "/victims":
                     body = oracle.c.flaky_test + "\n"
+                    if oracle.faithful and oracle.c.category == "OD" and oracle.c.polluter:
+                        body += f"POLLUTER {oracle.c.polluter}\n"
                 elif path == "/exec":
-                    body = oracle.exec(form.get("inv", ""), form.get("victim", ""))
+                    body = oracle.exec(form.get("inv", ""), form.get("victim", ""), form.get("polluter_ran") == "1")
                 elif path == "/control/phase":
                     oracle.phase = form.get("phase", oracle.phase)
                     oracle.mode = form.get("mode", oracle.mode)

@@ -97,74 +97,106 @@ def seed_fault(repro: Repro, cov: Coverage, deterministic: set[str], delay_tree:
     order = list(range(len(mutants)))
     random.Random(res.seed).shuffle(order)
 
-    original = src.read_text(encoding="utf-8", errors="surrogateescape")
-    victim_class = c.test_class
-    # Test classes whose tests cover any candidate method: running them finds every possible killer.
-    covering = sorted({t for t, ms in others.items() if any(m in ms for m in methods)})
-    test_classes = sorted({t.split("#", 1)[0] for t in covering})
-
-    rf.copy_tree(repro.host_root / "flaky", repro.host_root / "mutant")
-    if delay_tree:
-        rf.copy_tree(repro.host_root / delay_tree, repro.host_root / "mutant_delay")
-    mutant_src = repro.host_root / "mutant" / res.source
-    # Mutants change only the module, so the mutant trees reuse the flaky tree's upstream install.
-    repro.share_install("mutant", "flaky")
-    if delay_tree:
-        repro.share_install("mutant_delay", delay_tree)
+    ctx = BugContext.create(repro, res.source, others, methods, delay_tree)
     try:
         for idx in order:
             m = mutants[idx]
             funnel["examined"] += 1
             text = (work / f"{m['id']}.java").read_text(encoding="utf-8", errors="surrogateescape")
-            mutant_src.write_text(text, encoding="utf-8", errors="surrogateescape")
-            run = repro.run_suite("mutant", extra="-Dtest=" + shlex.quote(",".join(test_classes)))
-            if run.result.rc != 0 or not run.reports:
-                log(f"  {m['id']} {m['operator']} L{m['line']}: does not compile")
+            found = ctx.check(text, f"{m['id']} {m['operator']} L{m['line']}", funnel, log)
+            if not found:
                 continue
-            funnel["compiled"] += 1
-            killers = sorted(t for t in covering if t in run.reports and run.reports[t].failed)
-            if len(killers) < 2:
-                log(f"  {m['id']} {m['operator']} L{m['line']}: killed by {len(killers)}")
-                continue
-            funnel["killed_2plus"] += 1
-            in_class = [k for k in killers if k.split("#", 1)[0] == victim_class]
-            outside = [k for k in killers if k.split("#", 1)[0] != victim_class]
-            if not in_class or not outside:
-                log(f"  {m['id']}: killers not in both the flaky test's class and another class")
-                continue
-            funnel["killed_l1_l2"] += 1
-            alone_in = _fail_alone(repro, in_class)
-            alone_out = _fail_alone(repro, outside) if alone_in else []
-            if not alone_in or not alone_out:
-                log(f"  {m['id']}: killers do not fail with their class run alone")
-                continue
-            funnel["killed_alone"] += 1
-
-            if delay_tree and not _apply_text_patch(original, text, repro.host_root / "mutant_delay" / res.source):
-                log(f"  {m['id']}: conflicts with the delay patch")
-                continue
-            fail_tree = "mutant_delay" if delay_tree else "mutant"
-            if not _behaves(repro, "mutant", fail_tree, 1):
-                log(f"  {m['id']}: changes the flaky test's behavior")
-                _restore_delay(repro, delay_tree, res.source)
-                continue
-            funnel["flaky_unchanged"] += 1
-            if not _behaves(repro, "mutant", fail_tree, REPEATS):
-                log(f"  {m['id']}: flaky test not deterministic on the mutant (20/20)")
-                _restore_delay(repro, delay_tree, res.source)
-                continue
-            funnel["recheck_20"] += 1
             res.ok = True
             res.mutant = m
-            res.killers = killers
-            res.killer_messages = {k: (run.reports[k].message or "")[:2000] for k in killers}
-            res.standalone_killers = sorted(alone_in + alone_out)
-            log(f"  chose {m['id']} {m['operator']} {m['method']} L{m['line']}: killed by {len(killers)}")
+            res.killers, res.killer_messages, res.standalone_killers = found
+            log(f"  chose {m['id']} {m['operator']} {m['method']} L{m['line']}: killed by {len(res.killers)}")
             return res
         res.reason = "no mutant survives the filters"
         return res
     finally:
-        mutant_src.write_text(original, encoding="utf-8", errors="surrogateescape")
+        ctx.restore()
+
+
+@dataclass
+class BugContext:
+    """What it takes to check one candidate fault (a full replacement text of the target source file) against
+    the seeding filters: compiles, killed by >= 2 deterministic tests in and outside the flaky test's class that
+    also fail with their class run alone, and leaves the flaky test's behavior unchanged 20/20. Used for PIT
+    mutants (seed_fault) and for mined and LLM-written bugs (bugs.py)."""
+    repro: Repro
+    source: str                     # target source file, relative to the project root
+    original: str
+    covering: list[str]             # deterministic tests covering a candidate method: every possible killer
+    test_classes: list[str]
+    delay_tree: str | None
+    # Mutants were also needed at L1 (named test outside the flaky test's class). The main study runs at L2
+    # only, so mined and LLM-written bugs need a killer in the flaky test's class only (deviations.md #32).
+    require_outside: bool = True
+
+    @classmethod
+    def create(cls, repro: Repro, source: str, others: dict, methods: list[str],
+               delay_tree: str | None, require_outside: bool = True) -> "BugContext":
+        src = repro.host_root / "flaky" / source
+        covering = sorted({t for t, ms in others.items() if any(m in ms for m in methods)})
+        rf.copy_tree(repro.host_root / "flaky", repro.host_root / "mutant")
+        if delay_tree:
+            rf.copy_tree(repro.host_root / delay_tree, repro.host_root / "mutant_delay")
+        # Faults change only the module, so the fault trees reuse the flaky tree's upstream install.
+        repro.share_install("mutant", "flaky")
+        if delay_tree:
+            repro.share_install("mutant_delay", delay_tree)
+        return cls(repro, source, src.read_text(encoding="utf-8", errors="surrogateescape"), covering,
+                   sorted({t.split("#", 1)[0] for t in covering}), delay_tree, require_outside)
+
+    def restore(self) -> None:
+        (self.repro.host_root / "mutant" / self.source).write_text(
+            self.original, encoding="utf-8", errors="surrogateescape")
+
+    def check(self, text: str, label: str, funnel: dict, log=print) -> tuple[list, dict, list] | None:
+        """(killers, killer messages, standalone killers) if the fault passes every filter, else None."""
+        repro, victim_class = self.repro, self.repro.c.test_class
+        (repro.host_root / "mutant" / self.source).write_text(text, encoding="utf-8", errors="surrogateescape")
+        run = repro.run_suite("mutant", extra="-Dtest=" + shlex.quote(",".join(self.test_classes)))
+        if run.result.rc != 0 or not run.reports:
+            log(f"  {label}: does not compile")
+            return None
+        funnel["compiled"] = funnel.get("compiled", 0) + 1
+        killers = sorted(t for t in self.covering if t in run.reports and run.reports[t].failed)
+        if len(killers) < 2:
+            log(f"  {label}: killed by {len(killers)}")
+            return None
+        funnel["killed_2plus"] = funnel.get("killed_2plus", 0) + 1
+        in_class = [k for k in killers if k.split("#", 1)[0] == victim_class]
+        outside = [k for k in killers if k.split("#", 1)[0] != victim_class]
+        if not in_class or (self.require_outside and not outside):
+            log(f"  {label}: killers not in both the flaky test's class and another class" if in_class else
+                f"  {label}: no killer in the flaky test's class")
+            return None
+        funnel["killed_l1_l2"] = funnel.get("killed_l1_l2", 0) + 1
+        alone_in = _fail_alone(repro, in_class)
+        alone_out = _fail_alone(repro, outside) if alone_in and self.require_outside else []
+        if not alone_in or (self.require_outside and not alone_out):
+            log(f"  {label}: killers do not fail with their class run alone")
+            return None
+        funnel["killed_alone"] = funnel.get("killed_alone", 0) + 1
+
+        delay_tree = self.delay_tree
+        if delay_tree and not _apply_text_patch(self.original, text,
+                                                repro.host_root / "mutant_delay" / self.source):
+            log(f"  {label}: conflicts with the delay patch")
+            return None
+        fail_tree = "mutant_delay" if delay_tree else "mutant"
+        if not _behaves(repro, "mutant", fail_tree, 1):
+            log(f"  {label}: changes the flaky test's behavior")
+            _restore_delay(repro, delay_tree, self.source)
+            return None
+        funnel["flaky_unchanged"] = funnel.get("flaky_unchanged", 0) + 1
+        if not _behaves(repro, "mutant", fail_tree, REPEATS):
+            log(f"  {label}: flaky test not deterministic on the fault (20/20)")
+            _restore_delay(repro, delay_tree, self.source)
+            return None
+        funnel["recheck_20"] = funnel.get("recheck_20", 0) + 1
+        return killers, {k: (run.reports[k].message or "")[:2000] for k in killers}, sorted(alone_in + alone_out)
 
 
 def _fail_alone(repro: Repro, killers: list[str], max_classes: int = 3) -> list[str]:

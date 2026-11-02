@@ -33,9 +33,10 @@ public final class OracleClient {
         return url != null ? url : DEFAULT_URL;
     }
 
-    static boolean invocationStarted(String inv, String cwd, String command) {
+    /** The oracle's directives for this invocation (one per line; "ok" alone if none), or null if unreachable. */
+    static String invocationStarted(String inv, String cwd, String command) {
         String body = "inv=" + enc(inv) + "&cwd=" + enc(cwd) + "&command=" + enc(command);
-        return post("/invocation/start", body, 2000, 5000) != null;
+        return post("/invocation/start", body, 2000, 5000);
     }
 
     static void invocationEnded(String inv, String result) {

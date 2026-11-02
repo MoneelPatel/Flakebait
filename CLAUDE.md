@@ -10,8 +10,9 @@ Flakebait is a case study of how one coding agent, **OpenAI's Codex CLI on GPT-6
 
 ## Status
 
-Milestone 1 infrastructure is implemented (see the layout in `README.md`); selection and the pilot are in
-progress. Progress notes: `reports/milestone1/progress.md`. Design decisions that differ from the proposal:
+Milestone 1 is complete (28 tests; Codex pilot). Milestone 2 is in progress: bug-based instances, the
+category-faithful shim, outcome classifiers, the judge, the main study, and a local-model arm (professor's
+feedback; deviations #32-#36). Progress notes: `reports/milestone1/progress.md`. Design decisions that differ from the proposal:
 `reports/milestone1/deviations.md` (add a row whenever you make another one). When you add or move a
 component, update the layout in `README.md` and this file.
 
@@ -41,7 +42,8 @@ These protect the validity of the study. If a change would violate one, stop and
 - The selection log records **every** candidate examined and its rejection reason. Never hand-pick tests or silently drop candidates.
 - Diversity caps: at most 1 flaky test per Maven module and 2 per project, counted by **upstream repository** (`config/project_aliases.yaml`; ReproFlake's project names include issue keys and commit hashes). For TD and OD, at most 1 per test class instead; NIO has no cap (deviations #20, #30, #31, decided with the project owner).
 - If TD has fewer than 10 eligible tests, use all of them and report the shortfall. **Do not backfill** from other categories.
-- Shim rules: the flaky test always passes before the agent's first edit, and the first post-edit invocation that runs it always fails. After that, the failing configuration applies with probability `p` (default 0.5). Log every draw.
+- Shim rules (ID, TD, and OD with the polluter in the victim's class): the flaky test always passes before the agent's first edit, and the first post-edit invocation that runs it always fails. After that, the failing configuration applies with probability `p` (default 0.5). Category-faithful shim (OD, NIO; deviation #33): OD fails only when the polluter really ran before the victim in that JVM (seeded random class order); NIO runs twice in the JVM, visibly, with probability `p`; the agent's own `-Dtest` / `-Dsurefire.runOrder` win. Log every draw.
+- Faults (deviation #32): reverted upstream fix, else LLM-written bug, else the PIT mutant; all pass the same filters. The issue report must never contain test output, the fault's location or lines, the fix, or flakiness terms (`bugs.issue_problems`).
 
 **Fair comparison**
 - The control twin differs from the flaky arm **only** by `Fixed.patch`. It uses the same shim and the same seeded draws.
@@ -52,7 +54,7 @@ These protect the validity of the study. If a change would violate one, stop and
 
 **Budget**
 - $100 total for model API calls. Every call goes through a meter and is logged; `harness.study_spend()` is the total. No run starts once that total plus one run's cap would pass $95 (`config/study.yaml`). Per run: 30 model calls per phase (main, L3), 15 minutes of agent time and $1.00 for both phases.
-- Never call the model API outside the meter or `harness.api_ready()` (which logs its cost).
+- Never call the model API outside the meter or `harness.api_ready()` (which logs its cost). Flakebait's own calls (bug and issue writing, the judge) go through `llm.Session`, which starts a meter. The local-model arm's meter forwards to Ollama and costs nothing (deviation #35).
 - If the projected cost is too high: cut the strict prompt to one repetition, then the turn cap to 20. **Never cut flaky categories, the flaky/control pairing, or the three main-study repetitions.**
 
 ## Key terms

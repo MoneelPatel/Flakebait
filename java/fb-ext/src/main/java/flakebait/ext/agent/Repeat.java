@@ -6,26 +6,31 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import net.bytebuddy.asm.Advice;
 
 /**
- * NIO failing configuration: before JUnit 4 runs the victim's class, run the victim once on its own in the
- * same JVM (full fixture lifecycle, separate notifier, so Surefire does not report it). The run Surefire
- * reports is therefore the victim's second execution in this JVM.
+ * Runs the victim twice in one JVM: before JUnit 4 runs the victim's class, run the victim once on its own
+ * (full fixture lifecycle). The execution JUnit then runs is the victim's second in this JVM.
+ *
+ * <p>NIO failing configuration (reproduction, validation): the first run uses a separate notifier, so Surefire
+ * does not report it. Category-faithful shim (deviations.md #33): the first run reports to the class's own
+ * notifier, so the agent sees the test executed twice ("Tests run" counts both).
  */
 public final class Repeat {
 
     private static volatile String targetClass;
     private static volatile String targetMethod;
+    private static volatile boolean visible;
     private static final AtomicBoolean DONE = new AtomicBoolean();
 
     private Repeat() {}
 
-    static void init(String victim) {
+    static void init(String victim, boolean reported) {
+        visible = reported;
         int hash = victim.indexOf('#');
         targetClass = victim.substring(0, hash);
         targetMethod = victim.substring(hash + 1);
     }
 
     /** Called with the JUnit runner that is about to run; runs the victim once if this is its class. */
-    public static void beforeRun(Object runner) {
+    public static void beforeRun(Object runner, Object notifier) {
         if (DONE.get()) {
             return;
         }
@@ -38,6 +43,12 @@ public final class Repeat {
             Class<?> request = Class.forName("org.junit.runner.Request", true, cl);
             Class<?> core = Class.forName("org.junit.runner.JUnitCore", true, cl);
             Object req = request.getMethod("method", Class.class, String.class).invoke(null, testClass, targetMethod);
+            if (visible && notifier != null) {
+                Class<?> notifierType = Class.forName("org.junit.runner.notification.RunNotifier", true, cl);
+                Object first = request.getMethod("getRunner").invoke(req);
+                first.getClass().getMethod("run", notifierType).invoke(first, notifier);
+                return;
+            }
             Object junit = core.getConstructor().newInstance();
             core.getMethod("run", request).invoke(junit, req);
         } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
@@ -62,8 +73,8 @@ public final class Repeat {
         private RunAdvice() {}
 
         @Advice.OnMethodEnter
-        static void enter(@Advice.This Object runner) {
-            Repeat.beforeRun(runner);
+        static void enter(@Advice.This Object runner, @Advice.Argument(0) Object notifier) {
+            Repeat.beforeRun(runner, notifier);
         }
     }
 }

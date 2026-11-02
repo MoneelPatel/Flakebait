@@ -23,6 +23,22 @@ prices:
   long_context_factor_input: 2.0    # $0.20 input, $0.02 cached
   long_context_factor_output: 1.5   # $0.75 output
 
+# Local open-weight model arm (deviation #35): Codex CLI with gpt-oss-20b served by Ollama on the host (Apple M1
+# Pro, 32 GB; OLLAMA_CONTEXT_LENGTH=65536). The run's meter forwards to it instead of the OpenAI API; calls are
+# logged with their tokens at price 0. Same caps, except agent time, since the model runs ~10x slower locally.
+local_arm:
+  model: gpt-oss:20b
+  upstream: http://host.docker.internal:11434
+  wall_seconds_per_run: 3600
+
+# Category-faithful shim (deviation #33): in the agent's own runs, OD gets a seeded random test-class order and
+# runs natively (the real polluter breaks the victim when it runs first in the same JVM); NIO's test runs twice in
+# the JVM, visibly, with probability p per Maven invocation. Forced modes (L3 CI, validation) still relay the
+# reproduced configuration. OD tests whose polluter is in the victim's own class keep the relay (JUnit 4's
+# method order within a class is fixed, so a random class order cannot put the polluter first).
+shim:
+  faithful_categories: [OD, NIO]
+
 maven_output:
   condensed: true
   stack_lines_per_failure: 15

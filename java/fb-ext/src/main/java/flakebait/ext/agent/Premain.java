@@ -20,7 +20,8 @@ import net.bytebuddy.matcher.ElementMatchers;
  * Java agent entry point. Arguments are comma-separated key=value pairs:
  * <ul>
  *   <li>{@code inv=<id>[,oracle=<url>]}: victim mode, relays the flaky test's outcome from the oracle;</li>
- *   <li>{@code coverage=<dir>}: dumps per-test JaCoCo execution data into dir.</li>
+ *   <li>{@code coverage=<dir>}: dumps per-test JaCoCo execution data into dir;</li>
+ *   <li>{@code repeat=<class#method>}: runs that test once more before its class runs (see {@link Repeat}).</li>
  * </ul>
  */
 public final class Premain {
@@ -35,15 +36,20 @@ public final class Premain {
         if (opts.containsKey("coverage")) {
             Coverage.init(opts.get("coverage"));
             installCoverage(inst);
-        } else if (opts.containsKey("repeat")) {
-            Repeat.init(opts.get("repeat"));
+            return;
+        }
+        if (opts.containsKey("repeat")) {
+            // Alone: the NIO failing configuration (silent first run). With inv=: the faithful shim's repeat,
+            // with both executions reported.
+            Repeat.init(opts.get("repeat"), opts.containsKey("inv"));
             baseBuilder()
                     .type(named("org.junit.runners.ParentRunner")
                             .or(named("org.junit.internal.runners.JUnit38ClassRunner")))
                     .transform((b, td, cl, module, pd) -> b.visit(Advice.to(Repeat.RunAdvice.class)
                             .on(named("run").and(takesArguments(1)))))
                     .installOn(inst);
-        } else if (opts.containsKey("inv")) {
+        }
+        if (opts.containsKey("inv")) {
             VictimHook.init(opts.get("inv"), inst);
             installVictims(inst);
         }
@@ -56,14 +62,18 @@ public final class Premain {
         }
         AgentBuilder builder = baseBuilder();
         for (String line : victims.split("\n")) {
-            int hash = line.indexOf('#');
+            // "<class#method>": a victim; "POLLUTER <class#method>": an OD polluter to watch (faithful shim).
+            boolean polluter = line.startsWith("POLLUTER ");
+            String test = polluter ? line.substring("POLLUTER ".length()) : line;
+            int hash = test.indexOf('#');
             if (hash <= 0) {
                 continue;
             }
-            String type = line.substring(0, hash).trim();
-            String method = line.substring(hash + 1).trim();
+            String type = test.substring(0, hash).trim();
+            String method = test.substring(hash + 1).trim();
+            Class<?> advice = polluter ? PolluterAdvice.class : VictimAdvice.class;
             builder = builder.type(named(type)).transform((b, td, cl, module, pd) ->
-                    b.visit(Advice.to(VictimAdvice.class).on(named(method).and(takesArguments(0)))));
+                    b.visit(Advice.to(advice).on(named(method).and(takesArguments(0)))));
         }
         builder.installOn(inst);
         MessageOverrides.install(inst);

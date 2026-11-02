@@ -8,7 +8,7 @@ The agent's Codex CLI uses http://fb-meter:8080/v1 as its OpenAI base URL. The m
   - reads token usage from every response (streamed or not), prices it, and appends one line per request to
     /meter/meter_log.jsonl, which is outside the agent's container.
 
-Environment: OPENAI_API_KEY, TURN_CAP, RUN_CAP_USD, PRICE_INPUT, PRICE_CACHED, PRICE_OUTPUT (USD per 1M tokens),
+Environment: OPENAI_API_KEY, UPSTREAM_URL (default https://api.openai.com), TURN_CAP, RUN_CAP_USD, PRICE_INPUT, PRICE_CACHED, PRICE_OUTPUT (USD per 1M tokens),
 LONG_CONTEXT_TOKENS, LONG_CONTEXT_FACTOR_INPUT, LONG_CONTEXT_FACTOR_OUTPUT.
 Usage: python3 -u meter.py 8080
 """
@@ -20,12 +20,15 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-UPSTREAM = "api.openai.com"
+# The OpenAI API by default; the local-model arm points it at Ollama on the host (UPSTREAM_URL, no key, price 0).
+_UP = os.environ.get("UPSTREAM_URL", "https://api.openai.com").rstrip("/")
+UPSTREAM_TLS = _UP.startswith("https://")
+UPSTREAM = _UP.split("://", 1)[1]
 LOG = "/meter/meter_log.jsonl"
 HOP = {"connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "te", "trailers",
        "transfer-encoding", "upgrade", "host", "authorization", "accept-encoding", "content-length"}
 
-KEY = os.environ["OPENAI_API_KEY"]
+KEY = os.environ.get("OPENAI_API_KEY", "") if UPSTREAM_TLS else ""
 TURN_CAP = int(os.environ.get("TURN_CAP", "30"))
 RUN_CAP_USD = float(os.environ.get("RUN_CAP_USD", "1.0"))
 P_IN = float(os.environ["PRICE_INPUT"]) / 1e6
@@ -105,11 +108,13 @@ class Handler(BaseHTTPRequestHandler):
                 self._refuse(over)
                 return
         headers = {k: v for k, v in self.headers.items() if k.lower() not in HOP}
-        headers.update({"Host": UPSTREAM, "Authorization": f"Bearer {KEY}", "Accept-Encoding": "identity"})
+        headers.update({"Host": UPSTREAM, "Accept-Encoding": "identity"})
+        if KEY:
+            headers["Authorization"] = f"Bearer {KEY}"
         if body is not None:
             headers["Content-Length"] = str(len(body))
         start = time.time()
-        conn = http.client.HTTPSConnection(UPSTREAM, timeout=600)
+        conn = (http.client.HTTPSConnection if UPSTREAM_TLS else http.client.HTTPConnection)(UPSTREAM, timeout=1800)
         try:
             conn.request(self.command, self.path, body=body, headers=headers)
             resp = conn.getresponse()
@@ -162,6 +167,6 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8080
-    log({"event": "start", "turn_cap": TURN_CAP, "run_cap_usd": RUN_CAP_USD,
+    log({"event": "start", "upstream": _UP, "turn_cap": TURN_CAP, "run_cap_usd": RUN_CAP_USD,
          "prices_per_1m": [P_IN * 1e6, P_CACHED * 1e6, P_OUT * 1e6]})
     ThreadingHTTPServer(("0.0.0.0", port), Handler).serve_forever()

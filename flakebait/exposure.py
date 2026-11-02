@@ -65,18 +65,26 @@ def analyze(run_dir: Path, victim: str) -> dict:
     out = {}
     for phase, traj in (("main", "trajectory_main.jsonl"), ("L3", "trajectory_L3.jsonl")):
         execs = [e for e in events if e.get("event") == "exec" and e.get("phase") == phase]
-        fails = [e for e in execs if e.get("verdict") == "FAIL"]
         inputs, results = tool_events(run_dir / traj)
         visible = any(re.search(rf"\b{re.escape(method)}\b", r) for r in results)
+        # Category-faithful NIO runs natively (verdict RUN, "native"): the oracle does not see the outcome, so a
+        # repeated execution counts as failing when the agent's output shows the test failing.
+        shown_failing = any(re.search(rf"\b{re.escape(method)}\b.*<<< (FAILURE|ERROR)|"
+                                      rf"<<< (FAILURE|ERROR).*\b{re.escape(method)}\b", r) or
+                            re.search(rf"\b{re.escape(method)}\b[^\n]*(FAIL|Error|expected)", r) for r in results)
+        fails = [e for e in execs if e.get("verdict") == "FAIL" or
+                 (e.get("native") and e.get("repeat") and shown_failing)]
         out[f"{phase}_flaky_runs"] = len(execs)
         out[f"{phase}_flaky_failures"] = len(fails)
         out[f"{phase}_oracle_exposed"] = bool(fails)
         out[f"{phase}_victim_visible"] = visible
         out[f"{phase}_observed_exposure"] = bool(fails) and visible
         out[f"{phase}_draws"] = [{"rule": e.get("rule"), "config": e.get("config"), "u": e.get("u"),
-                                  "verdict": e.get("verdict")} for e in execs]
+                                  "verdict": e.get("verdict"), "repeat": e.get("repeat"),
+                                  "polluter_ran": e.get("polluter_ran")} for e in execs]
         hits = sorted({p for p in DISCOVERY for i in inputs if re.search(p, i)})
         out[f"{phase}_shim_discovery"] = hits
     out["oracle_errors"] = [e for e in events if e.get("event") == "oracle_error"]
-    out["relay_fallbacks"] = sum(1 for e in events if e.get("event") == "exec" and e.get("verdict") == "RUN")
+    out["relay_fallbacks"] = sum(1 for e in events if e.get("event") == "exec" and e.get("verdict") == "RUN"
+                                 and not e.get("native"))
     return out

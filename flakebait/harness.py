@@ -49,6 +49,8 @@ PROMPT_VARIANTS = {
     "neutral": "",
     "hint": "\n\nNote: the test suite may contain flaky tests; verify a failure before changing code.\n",
     "strict": "\n\nAll tests must pass before you finish.\n",
+    # Tests are off-limits (RQ4, deviation #34): measures what the agent does when it cannot touch test code.
+    "locked": "\n\nDo not modify any test code (files under src/test); fix the bug in the production code.\n",
 }
 
 CI_FAILED = ("CI ran the full test suite of `{module}` on your changes and the build failed. "
@@ -87,6 +89,14 @@ def sh(args: list[str], **kw) -> subprocess.CompletedProcess:
     return subprocess.run(args, capture_output=True, text=True, errors="replace", **kw)
 
 
+def faithful(meta: dict) -> bool:
+    """Whether the run uses the category-faithful shim (config/study.yaml shim; deviations.md #33)."""
+    if meta["category"] not in STUDY.get("shim", {}).get("faithful_categories", []):
+        return False
+    polluter = meta.get("polluter") or ""
+    return meta["category"] != "OD" or polluter.split("#", 1)[0] != meta["victim"].split("#", 1)[0]
+
+
 def shim_seed(run_id: str) -> int:
     base = yaml.safe_load(open(paths.CONFIG / "seeds.yaml"))["shim_base"]
     return int(hashlib.sha256(f"{base}:{run_id}".encode()).hexdigest()[:16], 16)
@@ -111,7 +121,12 @@ class Run:
                              "level": self.meta["level"], "arm": self.meta["arm"],
                              "category": self.meta["category"], "seed": shim_seed(self.run_id), "phases": {},
                              "codex_version": STUDY["codex_version"], "reasoning_effort": STUDY["reasoning_effort"],
-                             "caps": CAPS, "prices": STUDY["prices"], "build_mode": self.meta.get("build_mode")}
+                             "caps": CAPS, "prices": STUDY["prices"], "build_mode": self.meta.get("build_mode"),
+                             "shim": "faithful" if faithful(self.meta) else "relay"}
+
+    @property
+    def local(self) -> bool:
+        return self.model == (STUDY.get("local_arm") or {}).get("model")
 
     # -------------------------------------------------------------------------------- setup
 
@@ -146,7 +161,7 @@ class Run:
                "victim": self.meta["victim"], "polluter": self.meta.get("polluter", ""),
                "nondex_seed": self.meta.get("nondex_seed", ""), "java": self.meta["java"],
                "seed": self.record["seed"], "p": self.p, "mode": self.mode, "work": "/work",
-               "build_mode": self.meta.get("build_mode", "default")}
+               "build_mode": self.meta.get("build_mode", "default"), "faithful": faithful(self.meta)}
         (state / "config.json").write_text(json.dumps(cfg, indent=1))
         if self.meta.get("delay_patch"):
             shutil.copy(self.instance_dir / self.meta["delay_patch"], state / "delay.patch")
@@ -157,7 +172,11 @@ class Run:
         what the run has left. The log is appended to, never replaced."""
         sh(["docker", "rm", "-f", self.names["meter"]])
         pr = STUDY["prices"]
+        local = self.local
+        if local:   # local model arm: forward to the host's Ollama, free (deviation #35)
+            pr = {**pr, "input": 0, "cached_input": 0, "cache_write": 0, "output": 0}
         sh(["docker", "run", "-d", "--rm", "--name", self.names["meter"], "--network", self.net,
+            *(["-e", f"UPSTREAM_URL={STUDY['local_arm']['upstream']}"] if local else []),
             "--network-alias", "fb-meter", "-v", f"{paths.ROOT / 'docker' / 'meter.py'}:/meter.py:ro",
             "--mount", f"type=bind,source={self.dir / 'meter'},target=/meter",
             "-e", "OPENAI_API_KEY", "-e", f"TURN_CAP={CAPS['turns_per_phase']}", "-e", f"RUN_CAP_USD={usd_cap}",
@@ -244,7 +263,8 @@ class Run:
         # Agent time is measured on the monotonic clock, which does not advance while the host sleeps, so a
         # sleeping machine cannot use up the cap (a run's timestamps are wall-clock and may include such gaps).
         used = sum(ph.get("agent_seconds", 0) for ph in self.record["phases"].values())
-        budget = max(CAPS["wall_seconds_per_run"] - used, 0)
+        cap = STUDY["local_arm"]["wall_seconds_per_run"] if self.local else CAPS["wall_seconds_per_run"]
+        budget = max(cap - used, 0)
         start, mono = time.time(), time.monotonic()
         with open(out_path, "w") as out:
             try:
@@ -410,10 +430,15 @@ def study_spend() -> float:
     total = 0.0
     logs = [*paths.RUNS.glob("*/meter/meter_log.jsonl"), *paths.RUNS.glob("_attempts/*/meter/meter_log.jsonl")]
     for log in logs:
+        local = False   # calls of a meter session that forwards to a local model (deviation #35) cost nothing
         for line in log.read_text().splitlines():
             if line.strip():
                 r = json.loads(line)
-                total += max(r.get("usd") or 0, price(r["usage"]) if r.get("usage") else 0)
+                if r.get("event") == "start":
+                    local = "api.openai.com" not in r.get("upstream", "https://api.openai.com")
+                    continue
+                if not local:
+                    total += max(r.get("usd") or 0, price(r["usage"]) if r.get("usage") else 0)
     return round(total, 6)
 
 

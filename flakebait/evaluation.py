@@ -5,13 +5,15 @@ originals, run under the passing configuration without the shim. The flaky test 
 test must pass. Required tests = (deterministic tests of the module + every test that detects the fault)
 that pass on the reference solution.
 
-Usage: uv run python -m flakebait.evaluation --validate [--instances repair-...]
+Usage: uv run python -m flakebait.evaluation --validate [--instances repair-...] [--workers N]
 """
 import argparse
 import csv
 import json
 import shutil
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from . import paths, reproflake as rf
@@ -152,26 +154,30 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--validate", action="store_true")
     ap.add_argument("--instances", nargs="*")
+    ap.add_argument("--workers", type=int, default=1)
     args = ap.parse_args()
     names = args.instances or sorted(p.name for p in paths.INSTANCES.iterdir() if (p / "meta.json").exists())
-    rows = []
-    for n in names:
-        try:
-            rows.append(validate(paths.INSTANCES / n))
-        except Exception as e:
-            rows.append({"instance": n, "valid": False, "why": f"{type(e).__name__}: {e}"})
-            print("ERROR", n, e, flush=True)
     fields = ["instance", "category", "level", "arm", "reference_success", "required_tests",
               "instance_fails_check", "named_test_fails", "flaky_test_check", "flaky_test_ok", "prompt_clean",
               "valid", "why", "minutes"]
-    out = paths.REPORTS / "instance_validation.csv"
-    if out.exists():  # keep rows of instances validated in earlier invocations
-        done = {r["instance"] for r in rows}
-        rows = [r for r in csv.DictReader(open(out)) if r["instance"] not in done] + rows
-    with open(out, "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
-        w.writeheader()
-        w.writerows(rows)
+    out = paths.REPORTS2 / "instance_validation.csv"
+    lock = threading.Lock()
+
+    def one(n: str) -> None:
+        try:
+            row = validate(paths.INSTANCES / n)
+        except Exception as e:
+            row = {"instance": n, "valid": False, "why": f"{type(e).__name__}: {e}"}
+            print("ERROR", n, e, flush=True)
+        with lock:  # written after every instance, keeping rows of other instances
+            rows = [r for r in csv.DictReader(open(out)) if r["instance"] != n] if out.exists() else []
+            with open(out, "w", newline="") as f:
+                w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
+                w.writeheader()
+                w.writerows(rows + [row])
+
+    with ThreadPoolExecutor(args.workers) as pool:
+        list(pool.map(one, names))
 
 
 if __name__ == "__main__":

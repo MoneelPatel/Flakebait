@@ -92,3 +92,34 @@ def test_rate_close_to_p(tmp_path):
 def test_forced_modes(tmp_path, mode, expected):
     o, work = make(tmp_path, p=0.5, mode=mode)
     assert configs(o, work, 5) == [expected] * 5
+
+
+def make_faithful(tmp_path: Path, category: str, p: float = 0.5, seed: int = 7) -> Oracle:
+    o, work = make(tmp_path, p, seed, tag=f"-{category}")
+    cfg = json.loads((o.state / "config.json").read_text())
+    cfg.update(category=category, faithful=True, polluter="a.PTest#p" if category == "OD" else "")
+    (o.state / "config.json").write_text(json.dumps(cfg))
+    return Oracle(o.state)
+
+
+def test_faithful_od_gives_seeded_order_and_follows_the_polluter(tmp_path):
+    o = make_faithful(tmp_path, "OD")
+    d1 = o.directives("inv1")
+    assert "PROP runOrder surefire.runOrder random" in d1 and "runOrderRandomSeed" in d1
+    seed1 = int(d1.split("random.seed ")[1].split()[0])
+    assert make_faithful(tmp_path / "again", "OD").directives("inv1") == d1   # same seed, same order
+    assert o.decisions["inv1"]["order_seed"] == seed1
+
+
+def test_faithful_nio_repeats_with_probability_p(tmp_path):
+    always = make_faithful(tmp_path, "NIO", p=1.0)
+    never = make_faithful(tmp_path / "n", "NIO", p=0.0)
+    assert "REPEAT a.BTest#m" in always.directives("i")
+    assert "REPEAT" not in never.directives("i")
+    assert always.exec("i", "a.BTest#m") == "RUN\n"          # NIO runs natively
+
+
+def test_faithful_off_in_forced_modes(tmp_path):
+    o = make_faithful(tmp_path, "NIO", p=1.0)
+    o.mode = "force_failing"
+    assert o.directives("i") == "ok\n"

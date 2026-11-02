@@ -3,7 +3,7 @@
 Checks the model id, the meter's key swap, usage logging and pricing. Its cost is logged like any run
 (runs/smoke-*/meter/meter_log.jsonl), so it counts toward the study budget.
 
-Usage: uv run python scripts/smoke_codex.py
+Usage: uv run python -m scripts.smoke_codex [--local]     (--local: gpt-oss-20b via the host's Ollama, free)
 """
 import json
 import sys
@@ -15,7 +15,8 @@ from flakebait.harness import CAPS, METER_PORT, PLACEHOLDER_KEY, STUDY, Run, loa
 
 
 def main() -> None:
-    if not load_api_key():
+    local = "--local" in sys.argv
+    if not load_api_key() and not local:
         raise SystemExit("OPENAI_API_KEY is not set (environment or .env)")
     if study_spend() + CAPS["usd_per_run"] > CAPS["study_stop_usd"]:
         raise SystemExit("study budget reached")
@@ -28,15 +29,18 @@ def main() -> None:
     sh(["git", "-C", str(d / "work"), "-c", "user.email=fb@example.com", "-c", "user.name=fb", "add", "-A"])
     sh(["git", "-C", str(d / "work"), "-c", "user.email=fb@example.com", "-c", "user.name=fb", "commit", "-qm", "init"])
     run = Run.__new__(Run)          # reuse the harness's command line and meter settings
-    run.model = STUDY["model"]
+    run.model = STUDY["local_arm"]["model"] if local else STUDY["model"]
     net, meter, agent = f"fbnet-{tag}", f"fb-meter-{tag}", f"fb-agent-{tag}"
     pr = STUDY["prices"]
+    if local:
+        pr = {**pr, "input": 0, "cached_input": 0, "cache_write": 0, "output": 0}
+    upstream = ["-e", f"UPSTREAM_URL={STUDY['local_arm']['upstream']}"] if local else []
     try:
         sh(["docker", "network", "create", "--internal", net]).check_returncode()
         sh(["docker", "run", "-d", "--rm", "--name", meter, "--network", net, "--network-alias", "fb-meter",
             "-v", f"{paths.ROOT / 'docker' / 'meter.py'}:/meter.py:ro",
             "--mount", f"type=bind,source={d / 'meter'},target=/meter",
-            "-e", "OPENAI_API_KEY", "-e", "TURN_CAP=5", "-e", "RUN_CAP_USD=0.05",
+            *upstream, "-e", "OPENAI_API_KEY", "-e", "TURN_CAP=5", "-e", "RUN_CAP_USD=0.05",
             "-e", f"PRICE_INPUT={pr['input']}", "-e", f"PRICE_CACHED={pr['cached_input']}",
             "-e", f"PRICE_CACHE_WRITE={pr['cache_write']}", "-e", f"PRICE_OUTPUT={pr['output']}", "fb-base:8", "python3", "-u", "/meter.py", str(METER_PORT)]
            ).check_returncode()
@@ -46,7 +50,7 @@ def main() -> None:
            ).check_returncode()
         time.sleep(2)
         cmd = run.agent_cmd("Run `cat hello.txt` and reply with its contents only.", None)
-        p = sh(["docker", "exec", "-w", "/work", agent, *cmd], timeout=300)
+        p = sh(["docker", "exec", "-w", "/work", agent, *cmd], timeout=1800 if local else 300)
         (d / "trajectory_main.jsonl").write_text(p.stdout)
         print("rc", p.returncode)
         print("stderr tail:", p.stderr[-1500:])

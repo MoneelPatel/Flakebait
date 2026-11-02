@@ -3,7 +3,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 CONFIG = ROOT / "config"
-REPORTS = ROOT / "reports" / "milestone1"
+REPORTS = ROOT / "reports" / "milestone1"     # selection, pilot (frozen after Milestone 1)
+REPORTS2 = ROOT / "reports" / "milestone2"    # bug-based instances, main and prompt studies
 
 DATA = ROOT / "data"
 META = DATA / "reproflake" / "meta"

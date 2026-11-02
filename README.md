@@ -42,27 +42,35 @@ another deterministic test; (f) the module's suite runs in under 10 minutes. Div
 per module and two per upstream project for ID; for TD and OD, which cannot reach 10 under those caps, at
 most one per test class (deviations #20, #30); NIO, mostly a few junit-quickcheck classes, has no cap (#31). Shortfalls are reported, never backfilled.
 
-### Task: repair (40 instances)
+### Task: repair (one instance per selected test)
 
-Each flaky test yields one repair instance. A fault is seeded in a method of the **target class** (the production
-class the flaky test exercises, by JaCoCo) that the flaky test also covers. A mutant (PIT default operators) is
-kept only if it compiles, is killed by >= 2 deterministic tests, with killers in the flaky test's class and in
-another class that also fail when their class runs alone, and leaves the flaky test's behavior unchanged (20/20).
-One detecting test is named in the prompt; the others are held out. Success: every detecting test (named and
-held out) and every other deterministic test passes, run on a **pristine copy of the test suite** under the
-passing configuration, with the flaky test excluded.
+Each flaky test yields one repair instance with a fault in its **target class** (the production class the flaky
+test exercises, by JaCoCo), in a method the flaky test also covers (deviation #32; `flakebait/bugs.py`). Following
+current bug-fixing benchmarks (SWE-bench, Defects4J and GitBug-Java use real fixes; SWE-smith and R2E-Gym revert
+fixes or have a model write bugs), the fault is the first that passes the filters from: (1) a **real bug-fix
+commit** from the upstream repository's history before the snapshot, reverted (or one of its hunks); (2) a bug
+written by GPT-6 Luna; (3) the PIT mutant from selection. A fault is kept only if it compiles, is detected by
+>= 2 deterministic tests, with a detecting test in the flaky test's class that also fails with its class run alone,
+and leaves the flaky test's behavior unchanged (20/20). The task prompt is a **symptom-level issue report** written
+by the model (expected vs. actual, how to trigger it; never the test output, the location, the fix or flakiness),
+plus the named detecting test to run; the other detecting tests are held out. Success: every detecting test and
+every other deterministic test passes on a **pristine copy of the test suite** under the passing configuration,
+with the flaky test excluded; any fix that achieves this counts.
 
 ### Controlling the failure rate: the shim
 
 Each flaky test has a failing configuration (ReproFlake's reproduction: polluter first for OD, stored NonDex seed
 for ID, a second same-JVM run for NIO, the injected delay for TD) and a passing one (a default Maven run). The shim
-(`fb-ext` in Maven's `lib/ext` plus an oracle sidecar) intercepts every run of the flaky test: before the agent's
-first edit it passes; the first run after the first edit fails; after that the failing configuration applies with
-probability p = 0.5, from a per-run seeded generator. The oracle reproduces the drawn configuration on a private
-copy of the agent's current tree and relays the exact outcome, so a real fix really passes. Every draw is logged.
-Maven's console output is condensed for the agent (`/usr/local/bin/mvn`): the Surefire summary and, per failing
-test, its name, message and first 15 stack-trace lines; download, plugin and compiler-info lines are dropped. The
-flaky failure is condensed like any other.
+is `fb-ext` in Maven's `lib/ext` plus an oracle sidecar. For **ID and TD** it intercepts every run of the flaky
+test: before the agent's first edit it passes; the first run after the first edit fails; after that the failing
+configuration applies with probability p = 0.5, from a per-run seeded generator. The oracle reproduces the drawn
+configuration on a private copy of the agent's current tree and relays the exact outcome, so a real fix really
+passes. For **OD and NIO** the shim is category-faithful (deviation #33): each Maven invocation gets a seeded random
+test-class order, and the OD failing configuration is relayed only when the polluter really ran before the victim
+in that JVM (running the test alone passes); NIO's test runs twice in the JVM, visibly, with probability p. The
+agent's own `-Dtest` / `-Dsurefire.runOrder` take precedence, so it can observe and control both. Every draw is
+logged. Maven's console output is condensed for the agent (`/usr/local/bin/mvn`): the Surefire summary, the classes
+in the order they ran and, per failing test, its name, message and first 15 stack-trace lines.
 
 ### Exposure levels
 
@@ -126,7 +134,9 @@ flakebait/            Python pipeline (run with `uv run python -m flakebait.<mod
   selection.py        eligibility walker: caps, checks (a)-(f), selection log
   repro.py            passing/failing configuration of a flaky test, run in a build container
   coverage.py         per-test JaCoCo coverage, target class
-  seeding.py          fault seeding for repair tasks (mutant filters, 20/20 recheck)
+  seeding.py          fault filters (BugContext: detection, flaky test unchanged 20/20); PIT mutants in selection
+  bugs.py             faults for the repair tasks: reverted upstream fixes, LLM-written bugs, issue reports
+  llm.py              Flakebait's own model calls (bug/issue writing, judge), through a meter
   instances.py        repair instances (repo with one commit, prompt, hidden metadata), L1/L2, both arms
   evaluation.py       task success (pristine tests, passing configuration) and instance validation
   oracle.py           shim sidecar: per-invocation draws, reproduction, relay of the exact outcome
@@ -135,17 +145,25 @@ flakebait/            Python pipeline (run with `uv run python -m flakebait.<mod
   checks.py           isolation checks and end-to-end shim checks (no agent)
   pilot.py            pilot plan, runs (seeded order, budget stop), exposure/cost summaries, pilot decisions
   pilot_auto.py       unattended pilot that follows selection
+  outcomes.py         automatic outcome classifiers (diff rules, regressions, flaky-test fix check)
+  judge.py            LLM judge for recognition and disclosure (docs/labeling_guide.md)
+  study.py            main study and prompt study runner (seeded order, budget stop, one row per run)
 java/
-  fb-ext/             Maven core extension + Java agent (victim relay, NIO repeat mode, per-test coverage)
+  fb-ext/             Maven core extension + Java agent (victim relay, polluter tracking, NIO repeat, per-test
+                      coverage, per-invocation directives from the oracle)
   fb-tools/           JavaParser mutator (PIT default operators), per-test coverage report
 docker/               base images (Java 8/11/17 + ReproFlake tooling), agent image (Codex CLI, mvn wrapper),
-                      meter.py (metering proxy to the OpenAI API), mvn_condense.py, od-surefire patch
+                      meter.py (metering proxy to the OpenAI API, or to a local model), mvn_condense.py,
+                      od-surefire patch
 analysis/             report builders
 config/seeds.yaml     every random seed
 config/study.yaml     agent, model, caps, prices
 config/project_aliases.yaml  upstream repository of ReproFlake project names (diversity caps)
-scripts/              build_java.sh, prefetch_zips.py, smoke_codex.py (one tiny metered Codex call)
-reports/milestone1/   generated logs, tables, figures (README.md is the Milestone 1 report)
+scripts/              build_java.sh, prefetch_zips.py, smoke_codex.py (one tiny metered Codex call; --local),
+                      check_faithful.py (end-to-end check of the category-faithful shim)
+docs/labeling_guide.md  labels for the judge and the human annotators
+reports/milestone1/   selection, pilot (README.md is the Milestone 1 report)
+reports/milestone2/   bug-based instances, main/prompt study runs, ReproFlake issues found
 tests/                unit tests (draw rules, trace parsing)
 data/, runs/          ReproFlake archives, working copies, instances, run outputs (not committed)
 ```
